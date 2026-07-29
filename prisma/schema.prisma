@@ -30,6 +30,23 @@ model User {
 
   otpCodes        OTPVerification[]
   sessions        Session[]
+  
+  categories      Category[]
+  products        Product[]
+  comboProducts   ComboProduct[]
+  orders          Order[]
+  customers       Customer[]
+  coupons         Coupon[]
+  staff           Staff[]
+  printers        PrinterDevice[]
+  tickets         SupportTicket[]
+  deliveryZones   DeliveryZone[]
+  whatsappAccount WhatsAppAccount?
+  chats           ChatThread[]
+  campaigns       Campaign[]
+  automations     Automation[]
+  branches        Branch[]
+  reviews         Review[]
 
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -49,13 +66,19 @@ model MerchantProfile {
 
   logo              String?
   banner            String?
+  
+  address           String?
+  currency          String? @default("INR")
+  timezone          String? @default("IST (UTC+5:30)")
+  businessHours     Json?
+  gstNumber         String?
+  licenseNumber     String?
 
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 }
 
 model OTPVerification {
-
   id          String @id @default(cuid())
 
   userId      String
@@ -73,7 +96,6 @@ model OTPVerification {
 }
 
 model Session {
-
   id            String @id @default(cuid())
 
   userId        String
@@ -85,4 +107,246 @@ model Session {
   expiresAt     DateTime
 
   createdAt     DateTime @default(now())
+}
+
+model Category {
+  id          String    @id @default(cuid())
+  name        String
+  slug        String
+  category    String    // Dynamic tab category (e.g. "retail", "restaurant", "bakery")
+  merchantId  String
+  merchant    User      @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  products    Product[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Product {
+  id               String           @id @default(cuid())
+  name             String
+  price            Float
+  secondary        String?          // e.g. "Accessories", "Starters"
+  status           String           // "Available" | "Out of Stock" | "Active" | "Draft"
+  stock            Int?             @default(0)
+  sku              String?
+  barcode          String?
+  image            String?
+  categoryId       String?
+  categoryRelation Category?        @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  merchantId       String
+  merchant         User             @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  variants         ProductVariant[]
+  addons           ProductAddon[]
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+}
+
+model ProductVariant {
+  id        String   @id @default(cuid())
+  name      String
+  price     Float
+  stock     Int      @default(0)
+  sku       String?
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model ProductAddon {
+  id        String   @id @default(cuid())
+  name      String
+  price     Float
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model ComboProduct {
+  id          String   @id @default(cuid())
+  name        String
+  price       Float
+  description String?
+  merchantId  String
+  merchant    User     @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+}
+
+model Order {
+  id            String      @id @default(cuid())
+  customerName  String
+  customerPhone String
+  total         Float
+  status        String      // "New" | "Accepted" | "Preparing" | "Ready" | "Picked Up" | "Delivered" | "Cancelled" | "Refunded"
+  paymentStatus String      @default("Pending") // "Pending" | "Paid"
+  paymentMode   String      @default("COD")     // "COD" | "Online"
+  notes         String?
+  category      String      // Dynamic tab category
+  merchantId    String
+  merchant      User        @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  items         OrderItem[]
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId String?
+  name      String
+  price     Float
+  qty       Int
+}
+
+model Customer {
+  id          String   @id @default(cuid())
+  name        String
+  phone       String   @unique
+  ordersCount Int      @default(0)
+  totalSpend  Float    @default(0)
+  tags        String[] @default([])
+  lastActive  DateTime @default(now())
+  notes       String?
+  merchantId  String
+  merchant    User     @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+}
+
+model Coupon {
+  id         String   @id @default(cuid())
+  code       String   @unique
+  discount   String   // e.g. "10%" or "₹100"
+  expiry     DateTime
+  usage      Int      @default(0)
+  usageLimit Int      @default(100)
+  minOrder   Float    @default(0)
+  status     String   @default("Active") // "Active" | "Expired"
+  merchantId String
+  merchant   User     @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+}
+
+model Staff {
+  id         String   @id @default(cuid())
+  name       String
+  role       String   // "Manager" | "Chef" | "Cashier" | "Admin"
+  email      String?
+  phone      String?
+  status     String   @default("Active") // "Active" | "Inactive"
+  merchantId String
+  merchant   User     @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+}
+
+model StaffShiftLog {
+  id         String   @id @default(cuid())
+  staffId    String
+  action     String   // "Login" | "Logout" | "Break"
+  timestamp  DateTime @default(now())
+}
+
+model PrinterDevice {
+  id         String   @id @default(cuid())
+  name       String
+  type       String   // "Receipt" | "Kitchen"
+  ipAddress  String
+  paperWidth String   // "80mm" | "58mm"
+  status     String   @default("Offline")
+  latency    Int      @default(0)
+  merchantId String
+  merchant   User     @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+}
+
+model SupportTicket {
+  id         String   @id @default(cuid())
+  device     String?
+  client     String?
+  issue      String
+  category   String   // "WhatsApp API" | "Hardware" | "Billing" | "Software Bug" | "Other"
+  priority   String   // "Low" | "Medium" | "High" | "Urgent"
+  status     String   @default("Pending") // "Pending" | "In Progress" | "Completed"
+  createdAt  DateTime @default(now())
+  merchantId String
+  merchant   User     @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+}
+
+model DeliveryZone {
+  id         String @id @default(cuid())
+  name       String
+  charges    Float
+  minAmount  Float
+  merchantId String
+  merchant   User   @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+}
+
+model WhatsAppAccount {
+  id                String  @id @default(cuid())
+  merchantId        String  @unique
+  merchant          User    @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  businessId        String
+  wabaId            String
+  phoneNumberId     String
+  accessToken       String
+  connectionStatus  String  @default("Connected") // "Connected" | "Disconnected"
+}
+
+model ChatThread {
+  id          String        @id @default(cuid())
+  name        String
+  phone       String
+  lastMessage String
+  time        String
+  unread      Int           @default(0)
+  category    String
+  merchantId  String
+  merchant    User          @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  messages    ChatMessage[]
+}
+
+model ChatMessage {
+  id        String     @id @default(cuid())
+  threadId  String
+  thread    ChatThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  sender    String     // "customer" | "bot" | "merchant"
+  text      String
+  time      String
+}
+
+model Campaign {
+  id         String   @id @default(cuid())
+  name       String
+  template   String
+  sent       Int      @default(0)
+  readRate   Float    @default(0)
+  date       String
+  merchantId String
+  merchant   User     @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+}
+
+model Automation {
+  id         String   @id @default(cuid())
+  name       String
+  trigger    String
+  action     String
+  hits       Int      @default(0)
+  status     String   @default("Active") // "Active" | "Paused"
+  merchantId String
+  merchant   User     @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+}
+
+model Branch {
+  id         String   @id @default(cuid())
+  name       String
+  address    String
+  phone      String?
+  isActive   Boolean  @default(true)
+  merchantId String
+  merchant   User     @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Review {
+  id         String   @id @default(cuid())
+  customer   String
+  rating     Int      @default(5)
+  comment    String
+  createdAt  DateTime @default(now())
+  merchantId String
+  merchant   User     @relation(fields: [merchantId], references: [id], onDelete: Cascade)
 }

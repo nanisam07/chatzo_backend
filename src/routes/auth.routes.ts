@@ -10,6 +10,7 @@ import {
   forgotPassword,
   resetPassword,
   getMe,
+  onboarding,
 } from "../controllers/auth.controller";
 import { validate } from "../middlewares/validate.middleware";
 import { authenticate } from "../middlewares/auth.middleware";
@@ -21,6 +22,7 @@ import {
   forgotPasswordSchema,
   resetPasswordSchema,
   resendOtpSchema,
+  onboardingSchema,
 } from "../validators/auth.validator";
 
 const router = Router();
@@ -38,5 +40,6 @@ router.post("/reset-password", validate(resetPasswordSchema), resetPassword);
 
 // Protected routes
 router.get("/me", authenticate, getMe);
+router.patch("/onboarding", authenticate, validate(onboardingSchema), onboarding);
 
 export default router;

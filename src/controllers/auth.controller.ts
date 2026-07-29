@@ -10,6 +10,7 @@ import {
   resetPasswordService,
   getMeService,
   resendOtpService,
+  onboardingService,
 } from "../services/auth.service";
 import { successResponse } from "../utils/response";
 import { OtpType } from "@prisma/client";
@@ -21,6 +22,7 @@ import {
   ResetPasswordInput,
   ResendOtpInput,
   SendOtpInput,
+  OnboardingInput,
 } from "../validators/auth.validator";
 
 // ─── Cookie Helpers ───────────────────────────────────────────────────────────
@@ -265,6 +267,27 @@ export const getMe = async (
     }
     const result = await getMeService(req.user.id);
     successResponse(res, "Profile fetched successfully.", result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * PATCH /api/v1/auth/onboarding
+ */
+export const onboarding = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ success: false, message: "Unauthorized", errors: [] });
+      return;
+    }
+    const body = req.body as OnboardingInput;
+    const result = await onboardingService(req.user.id, body);
+    successResponse(res, result.message, result.profile);
   } catch (error) {
     next(error);
   }

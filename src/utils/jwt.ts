@@ -24,8 +24,16 @@ export const generateRefreshToken = (userId: string): string => {
 
 export const verifyAccessToken = (token: string): TokenPayload => {
   try {
-    return jwt.verify(token, env.JWT_SECRET) as TokenPayload;
-  } catch {
+    console.log("JWT SECRET =", env.JWT_SECRET);
+
+    const decoded = jwt.verify(token, env.JWT_SECRET);
+
+    console.log("Decoded =", decoded);
+
+    return decoded as TokenPayload;
+  } catch (err) {
+    console.log("JWT ERROR =", err);
+
     throw new UnauthorizedError("Invalid or expired access token");
   }
 };

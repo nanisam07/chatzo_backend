@@ -6,6 +6,7 @@ import {
   updateUser,
   createMerchantProfile,
   findMerchantByUserId,
+  updateMerchantProfileByUserId,
   createOtp,
   findValidOtp,
   findLatestOtp,
@@ -35,6 +36,7 @@ import type {
   LoginInput,
   VerifyOtpInput,
   ResetPasswordInput,
+  OnboardingInput,
 } from "../validators/auth.validator";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -386,6 +388,12 @@ export const getMeService = async (userId: string) => {
             country: user.merchantProfile.country,
             logo: user.merchantProfile.logo,
             banner: user.merchantProfile.banner,
+            address: user.merchantProfile.address,
+            currency: user.merchantProfile.currency,
+            timezone: user.merchantProfile.timezone,
+            businessHours: user.merchantProfile.businessHours,
+            gstNumber: user.merchantProfile.gstNumber,
+            licenseNumber: user.merchantProfile.licenseNumber,
           }
         : null,
     },
@@ -396,3 +404,27 @@ export const getMeService = async (userId: string) => {
  * Resend OTP: wrapper around sendOtpService.
  */
 export const resendOtpService = sendOtpService;
+
+export const onboardingService = async (userId: string, input: OnboardingInput) => {
+  await updateUser(userId, { fullName: input.ownerName });
+
+  const profile = await updateMerchantProfileByUserId(userId, {
+    businessName: input.businessName,
+    businessCategory: input.businessCategory,
+    phone: input.phone,
+    country: input.country,
+    address: input.address,
+    currency: input.currency,
+    timezone: input.timezone,
+    businessHours: input.businessHours ? (input.businessHours as any) : undefined,
+    logo: input.logo,
+    banner: input.banner,
+    gstNumber: input.gstNumber,
+    licenseNumber: input.licenseNumber,
+  });
+
+  return {
+    message: "Onboarding completed successfully. Welcome to your dashboard!",
+    profile,
+  };
+};

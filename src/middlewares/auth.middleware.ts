@@ -9,38 +9,43 @@ export const authenticate = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    // 1. Extract token from Authorization header or HTTP-only cookie
+    console.log("========== AUTH ==========");
+    console.log("Authorization:", req.headers.authorization);
+    console.log("Cookie:", req.cookies);
+
     let token: string | undefined;
 
     const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith("Bearer ")) {
+
+    if (authHeader?.startsWith("Bearer ")) {
       token = authHeader.split(" ")[1];
     } else if (req.cookies?.accessToken) {
-      token = req.cookies.accessToken as string;
+      token = req.cookies.accessToken;
     }
 
-    if (!token) {
-      throw new UnauthorizedError("Authentication required. Please log in.");
-    }
+    console.log("Token:", token);
 
-    // 2. Verify token
-    const payload = verifyAccessToken(token);
+    const payload = verifyAccessToken(token!);
 
-    // 3. Fetch user from DB (ensures account still exists & not disabled)
+    console.log("Payload:", payload);
+
     const user = await prisma.user.findUnique({
-      where: { id: payload.userId },
-      include: { merchantProfile: true },
+      where: {
+        id: payload.userId,
+      },
+      include: {
+        merchantProfile: true,
+      },
     });
 
-    if (!user) {
-      throw new UnauthorizedError("Account not found. Please log in again.");
-    }
+    console.log("User:", user);
 
-    // 4. Attach user to request
-    req.user = user;
+    req.user = user!;
     next();
-  } catch (error) {
-    next(error);
+  } catch (err) {
+    console.error("AUTH ERROR");
+    console.error(err);
+    next(err);
   }
 };
 

@@ -88,3 +88,21 @@ export type VerifyOtpInput = z.infer<typeof verifyOtpSchema>;
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 export type ResendOtpInput = z.infer<typeof resendOtpSchema>;
+
+export const onboardingSchema = z.object({
+  businessName: z.string().min(2, "Business name is required").trim(),
+  businessCategory: z.string().min(2, "Business category is required").trim(),
+  ownerName: z.string().min(2, "Owner name is required").trim(),
+  phone: z.string().min(6, "Phone is required").trim(),
+  country: z.string().min(2, "Country is required").trim(),
+  address: z.string().min(2, "Address is required").trim(),
+  currency: z.string().optional().default("INR"),
+  timezone: z.string().optional().default("IST (UTC+5:30)"),
+  businessHours: z.any().optional(),
+  logo: z.string().optional(),
+  banner: z.string().optional(),
+  gstNumber: z.string().optional(),
+  licenseNumber: z.string().optional(),
+});
+
+export type OnboardingInput = z.infer<typeof onboardingSchema>;

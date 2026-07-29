@@ -43,6 +43,13 @@ export const findMerchantByUserId = async (
   return prisma.merchantProfile.findUnique({ where: { userId } });
 };
 
+export const updateMerchantProfileByUserId = async (
+  userId: string,
+  data: Prisma.MerchantProfileUpdateInput
+): Promise<MerchantProfile> => {
+  return prisma.merchantProfile.update({ where: { userId }, data });
+};
+
 // ─── OTP ──────────────────────────────────────────────────────────────────────
 
 export const createOtp = async (
