@@ -1,0 +1,88 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  MERCHANT
+  STAFF
+  ADMIN
+}
+
+enum OtpType {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+}
+
+model User {
+  id              String   @id @default(cuid())
+  fullName        String
+  email           String   @unique
+  password        String
+  emailVerified   Boolean  @default(false)
+  role            UserRole @default(MERCHANT)
+
+  merchantProfile MerchantProfile?
+
+  otpCodes        OTPVerification[]
+  sessions        Session[]
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model MerchantProfile {
+  id                String @id @default(cuid())
+
+  userId            String @unique
+  user              User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  businessName      String
+  businessCategory  String
+
+  phone             String?
+  country           String?
+
+  logo              String?
+  banner            String?
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model OTPVerification {
+
+  id          String @id @default(cuid())
+
+  userId      String
+  user        User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  otp         String
+
+  type        OtpType
+
+  expiresAt   DateTime
+
+  verified    Boolean @default(false)
+
+  createdAt   DateTime @default(now())
+}
+
+model Session {
+
+  id            String @id @default(cuid())
+
+  userId        String
+
+  user          User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  refreshToken  String
+
+  expiresAt     DateTime
+
+  createdAt     DateTime @default(now())
+}
