@@ -19,11 +19,17 @@ interface SendMessageOptions {
 
 export const whatsappService = {
   // Exchange OAuth code for access token
-  async exchangeCodeForToken(code: string): Promise<{
+  async exchangeCodeForToken(code: string, redirectUri?: string): Promise<{
     accessToken: string;
     tokenExpiry?: Date;
   }> {
-    const url = `https://graph.facebook.com/${env.META_GRAPH_VERSION}/oauth/access_token?client_id=${env.META_APP_ID}&client_secret=${env.META_APP_SECRET}&code=${code}&redirect_uri=${env.META_REDIRECT_URI}`;
+    const finalRedirectUri = redirectUri !== undefined ? redirectUri : env.META_REDIRECT_URI;
+    let url = `https://graph.facebook.com/${env.META_GRAPH_VERSION}/oauth/access_token?client_id=${env.META_APP_ID}&client_secret=${env.META_APP_SECRET}&code=${code}`;
+    
+    if (finalRedirectUri) {
+      url += `&redirect_uri=${encodeURIComponent(finalRedirectUri)}`;
+    }
+
     const res = await fetch(url);
     const data = (await res.json()) as any;
     if (!res.ok || data.error) {

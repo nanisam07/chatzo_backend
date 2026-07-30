@@ -51,7 +51,7 @@ export const connectAccount = async (req: Request, res: Response, next: NextFunc
       return;
     }
 
-    const { code } = req.query;
+    const { code, redirect_uri } = req.query;
     if (!code) {
       res.status(400).json({ success: false, message: "Authorization code is required" });
       return;
@@ -81,7 +81,10 @@ export const connectAccount = async (req: Request, res: Response, next: NextFunc
       };
     } else {
       // Real flow
-      const tokenExchange = await whatsappService.exchangeCodeForToken(String(code));
+      const tokenExchange = await whatsappService.exchangeCodeForToken(
+        String(code),
+        redirect_uri ? String(redirect_uri) : undefined
+      );
       const details = await whatsappService.fetchAccountDetails(tokenExchange.accessToken);
       accountDetails = {
         ...details,
