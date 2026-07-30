@@ -57,6 +57,11 @@ export const connectAccount = async (req: Request, res: Response, next: NextFunc
       return;
     }
 
+    const isAjax = !!req.headers.authorization;
+    const resolvedRedirectUri = redirect_uri !== undefined 
+      ? String(redirect_uri) 
+      : (isAjax ? undefined : env.META_REDIRECT_URI);
+
     let accountDetails: {
       businessId: string;
       wabaId: string;
@@ -83,7 +88,7 @@ export const connectAccount = async (req: Request, res: Response, next: NextFunc
       // Real flow
       const tokenExchange = await whatsappService.exchangeCodeForToken(
         String(code),
-        redirect_uri ? String(redirect_uri) : undefined
+        resolvedRedirectUri
       );
       const details = await whatsappService.fetchAccountDetails(tokenExchange.accessToken);
       accountDetails = {

@@ -23,11 +23,10 @@ export const whatsappService = {
     accessToken: string;
     tokenExpiry?: Date;
   }> {
-    const finalRedirectUri = redirectUri !== undefined ? redirectUri : env.META_REDIRECT_URI;
     let url = `https://graph.facebook.com/${env.META_GRAPH_VERSION}/oauth/access_token?client_id=${env.META_APP_ID}&client_secret=${env.META_APP_SECRET}&code=${code}`;
     
-    if (finalRedirectUri) {
-      url += `&redirect_uri=${encodeURIComponent(finalRedirectUri)}`;
+    if (redirectUri) {
+      url += `&redirect_uri=${encodeURIComponent(redirectUri)}`;
     }
 
     const res = await fetch(url);
