@@ -29,4 +29,13 @@ export const env = {
   EMAIL_FROM: process.env.EMAIL_FROM || "CHATZO <onboarding@resend.dev>",
 
   FRONTEND_URL: process.env.FRONTEND_URL || "http://localhost:3000",
+
+  // Meta & WhatsApp Cloud API Configurations
+  META_APP_ID: process.env.META_APP_ID || "",
+  META_APP_SECRET: process.env.META_APP_SECRET || "",
+  META_VERIFY_TOKEN: process.env.META_VERIFY_TOKEN || "",
+  META_REDIRECT_URI: process.env.META_REDIRECT_URI || "",
+  META_GRAPH_VERSION: process.env.META_GRAPH_VERSION || "v20.0",
+  WHATSAPP_ACCESS_TOKEN: process.env.WHATSAPP_ACCESS_TOKEN || "",
+  WHATSAPP_TOKEN_ENCRYPTION_KEY: process.env.WHATSAPP_TOKEN_ENCRYPTION_KEY || "default_token_encryption_key_32_c",
 };

@@ -12,6 +12,7 @@ import routes from "./routes";
 import { errorMiddleware } from "./middlewares/error.middleware";
 import { env } from "./config/env";
 import authRoutes from "./routes/auth.routes";
+import webhookRoutes from "./routes/webhook.routes";
 
 const app = express();
 
@@ -88,6 +89,7 @@ app.get("/health", (_req, res) => {
 // ─── API Routes ───────────────────────────────────────────────────────────────
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1", routes);
+app.use("/webhook", webhookRoutes);
 
 // ─── 404 Handler ─────────────────────────────────────────────────────────────
 app.use((_req, res) => {

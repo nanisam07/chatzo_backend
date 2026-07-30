@@ -275,14 +275,20 @@ model DeliveryZone {
 }
 
 model WhatsAppAccount {
-  id                String  @id @default(cuid())
-  merchantId        String  @unique
-  merchant          User    @relation(fields: [merchantId], references: [id], onDelete: Cascade)
-  businessId        String
-  wabaId            String
-  phoneNumberId     String
-  accessToken       String
-  connectionStatus  String  @default("Connected") // "Connected" | "Disconnected"
+  id                 String    @id @default(cuid())
+  merchantId         String    @unique
+  merchant           User      @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  businessId         String
+  wabaId             String
+  phoneNumberId      String
+  displayPhoneNumber String?
+  businessName       String?
+  accessToken        String
+  tokenExpiry        DateTime?
+  connectionStatus   String    @default("Connected") // "Connected" | "Disconnected"
+  webhookVerified    Boolean   @default(false)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 }
 
 model ChatThread {
