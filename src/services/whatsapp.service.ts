@@ -4,6 +4,20 @@ import { encrypt, decrypt } from "../utils/crypto";
 
 const prisma = new PrismaClient();
 
+export class MetaOAuthError extends Error {
+  code?: number;
+  subcode?: number;
+  trace_id?: string;
+
+  constructor(message: string, code?: number, subcode?: number, trace_id?: string) {
+    super(message);
+    this.name = "MetaOAuthError";
+    this.code = code;
+    this.subcode = subcode;
+    this.trace_id = trace_id;
+  }
+}
+
 interface SendMessageOptions {
   recipientPhone: string;
   type: "text" | "image" | "document" | "template" | "interactive_button" | "interactive_list" | "product";
@@ -26,6 +40,8 @@ export const whatsappService = {
     accessToken: string;
     tokenExpiry?: Date;
   }> {
+    console.log("[Token Exchange] Exchanging authorization code via Meta Graph API v23.0");
+
     const body = new URLSearchParams({
       client_id: env.META_APP_ID,
       client_secret: env.META_APP_SECRET,
@@ -37,7 +53,7 @@ export const whatsappService = {
     }
 
     const res = await fetch(
-      `https://graph.facebook.com/${env.META_GRAPH_VERSION}/oauth/access_token`,
+      "https://graph.facebook.com/v23.0/oauth/access_token",
       {
         method: "POST",
         headers: {
@@ -50,9 +66,17 @@ export const whatsappService = {
     const data = (await res.json()) as any;
 
     if (!res.ok || data.error) {
-      console.error("[WhatsApp] Token exchange error response:", data.error);
-      throw new Error(data.error?.message || "Failed to exchange authorization code for token");
+      const errorObj = data.error || {};
+      console.error("[Token Exchange] Meta token exchange failed:", errorObj);
+      throw new MetaOAuthError(
+        errorObj.message || "Meta token exchange failed",
+        errorObj.code,
+        errorObj.error_subcode,
+        errorObj.fbtrace_id
+      );
     }
+
+    console.log("[Token Exchange] Token exchange successful.");
 
     return {
       accessToken: data.access_token,
@@ -61,6 +85,7 @@ export const whatsappService = {
         : undefined,
     };
   },
+
   // Fetch WABA details shared with the token
   async fetchAccountDetails(token: string): Promise<{
     businessId: string;
@@ -69,29 +94,60 @@ export const whatsappService = {
     displayPhoneNumber: string;
     businessName: string;
   }> {
+    console.log("[Account Details] Fetching shared WhatsApp Business Accounts from Meta Graph API v23.0...");
+
     // 1. Get shared WhatsApp Business Accounts
-    const wabaUrl = `https://graph.facebook.com/${env.META_GRAPH_VERSION}/me/whatsapp_business_accounts?access_token=${token}`;
+    const wabaUrl = `https://graph.facebook.com/v23.0/me/whatsapp_business_accounts?access_token=${token}`;
     const wabaRes = await fetch(wabaUrl);
     const wabaData = (await wabaRes.json()) as any;
-    if (!wabaRes.ok || !wabaData.data || wabaData.data.length === 0) {
-      throw new Error(wabaData.error?.message || "No WhatsApp Business Accounts linked to this token");
+
+    if (!wabaRes.ok || wabaData.error) {
+      const errorObj = wabaData.error || {};
+      console.error("[Account Details] Fetching WhatsApp Business Accounts failed:", errorObj);
+      throw new MetaOAuthError(
+        errorObj.message || "Failed to fetch WhatsApp Business Accounts",
+        errorObj.code,
+        errorObj.error_subcode,
+        errorObj.fbtrace_id
+      );
+    }
+
+    if (!wabaData.data || wabaData.data.length === 0) {
+      console.error("[Account Details] No WhatsApp Business Accounts linked to this token");
+      throw new Error("No WhatsApp Business Accounts linked to this token");
     }
 
     const firstAccount = wabaData.data[0];
     const wabaId = firstAccount.id;
     const businessName = firstAccount.name || "My WhatsApp Store";
+    console.log("[Account Details] Shared WABA retrieved successfully. WABA ID:", wabaId);
 
     // 2. Get phone numbers registered with this WABA
-    const phoneUrl = `https://graph.facebook.com/${env.META_GRAPH_VERSION}/${wabaId}/phone_numbers?access_token=${token}`;
+    console.log("[Account Details] Fetching phone numbers for WABA:", wabaId);
+    const phoneUrl = `https://graph.facebook.com/v23.0/${wabaId}/phone_numbers?access_token=${token}`;
     const phoneRes = await fetch(phoneUrl);
     const phoneData = (await phoneRes.json()) as any;
-    if (!phoneRes.ok || !phoneData.data || phoneData.data.length === 0) {
-      throw new Error(phoneData.error?.message || "No phone numbers registered with this WhatsApp Business Account");
+
+    if (!phoneRes.ok || phoneData.error) {
+      const errorObj = phoneData.error || {};
+      console.error("[Account Details] Fetching phone numbers failed:", errorObj);
+      throw new MetaOAuthError(
+        errorObj.message || "Failed to fetch phone numbers from WhatsApp Business Account",
+        errorObj.code,
+        errorObj.error_subcode,
+        errorObj.fbtrace_id
+      );
+    }
+
+    if (!phoneData.data || phoneData.data.length === 0) {
+      console.error("[Account Details] No phone numbers registered with this WhatsApp Business Account");
+      throw new Error("No phone numbers registered with this WhatsApp Business Account");
     }
 
     const firstPhone = phoneData.data[0];
     const phoneNumberId = firstPhone.id;
     const displayPhoneNumber = firstPhone.display_phone_number || "";
+    console.log("[Account Details] Registered phone numbers retrieved successfully. Phone ID:", phoneNumberId);
 
     // 3. For businessId, fetch WABA profile to resolve business owner
     const businessId = firstAccount.owner_business_info?.id || "1234567890";
@@ -273,7 +329,7 @@ export const whatsappService = {
     let metaMessageId = "mock_msg_id_" + Math.random().toString(36).substr(2, 9);
     
     if (env.META_APP_ID && accessToken && accessToken !== "mock_token") {
-      const url = `https://graph.facebook.com/${env.META_GRAPH_VERSION}/${phoneNumberId}/messages`;
+      const url = `https://graph.facebook.com/v23.0/${phoneNumberId}/messages`;
       try {
         const response = await fetch(url, {
           method: "POST",

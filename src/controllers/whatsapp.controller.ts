@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { PrismaClient } from "@prisma/client";
-import { whatsappService } from "../services/whatsapp.service";
+import { whatsappService, MetaOAuthError } from "../services/whatsapp.service";
 import { encrypt, decrypt } from "../utils/crypto";
 import { env } from "../config/env";
 
@@ -57,7 +57,10 @@ export const connectAccount = async (req: Request, res: Response, next: NextFunc
       return;
     }
 
-    const resolvedRedirectUri = redirect_uri ? String(redirect_uri) : undefined;
+    // Never send "undefined" or empty string redirect_uri
+    const resolvedRedirectUri = redirect_uri && String(redirect_uri) !== "undefined" && String(redirect_uri).trim() !== ""
+      ? String(redirect_uri)
+      : undefined;
 
     let accountDetails: {
       businessId: string;
@@ -71,7 +74,7 @@ export const connectAccount = async (req: Request, res: Response, next: NextFunc
 
     // If using mock code or Meta credentials are not fully set up, fallback to mock details
     if (code === "mock_code" || code === "test_code" || !env.META_APP_ID || !env.META_APP_SECRET) {
-      console.log("[WhatsApp] Using mock onboarding setup");
+      console.log("[OAuth] Using Sandbox Demo/Mock onboarding setup");
       accountDetails = {
         businessId: "109876543210987",
         wabaId: "209876543210988",
@@ -83,21 +86,37 @@ export const connectAccount = async (req: Request, res: Response, next: NextFunc
       };
     } else {
       // Real flow
-      console.log("[WhatsApp] Exchanging authorization code for token");
-      console.log("[WhatsApp] Merchant ID:", merchantId);
-      console.log("[WhatsApp] Code:", code);
-      console.log("[WhatsApp] Resolved Redirect URI:", resolvedRedirectUri);
-
-      const tokenExchange = await whatsappService.exchangeCodeForToken(
-        String(code),
-        resolvedRedirectUri
-      );
-      const details = await whatsappService.fetchAccountDetails(tokenExchange.accessToken);
-      accountDetails = {
-        ...details,
-        accessToken: tokenExchange.accessToken,
-        tokenExpiry: tokenExchange.tokenExpiry,
-      };
+      try {
+        console.log("[OAuth] Received connection request from frontend. Initiating token exchange...");
+        const tokenExchange = await whatsappService.exchangeCodeForToken(
+          String(code),
+          resolvedRedirectUri
+        );
+        const details = await whatsappService.fetchAccountDetails(tokenExchange.accessToken);
+        accountDetails = {
+          ...details,
+          accessToken: tokenExchange.accessToken,
+          tokenExpiry: tokenExchange.tokenExpiry,
+        };
+      } catch (exchangeError: any) {
+        if (exchangeError instanceof MetaOAuthError) {
+          res.status(400).json({
+            success: false,
+            message: exchangeError.message || "Meta token exchange failed",
+            meta: {
+              code: exchangeError.code,
+              subcode: exchangeError.subcode,
+              trace_id: exchangeError.trace_id,
+            },
+          });
+          return;
+        }
+        res.status(400).json({
+          success: false,
+          message: exchangeError.message || "Failed to exchange Meta authorization code",
+        });
+        return;
+      }
     }
 
     // Encrypt access token before storing
