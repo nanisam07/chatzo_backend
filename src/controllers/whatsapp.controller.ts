@@ -86,6 +86,13 @@ export const connectAccount = async (req: Request, res: Response, next: NextFunc
       };
     } else {
       // Real flow
+      console.log("========== META OAUTH DEBUG ==========");
+      console.log("Authorization Code:", req.query.code);
+      console.log("Redirect URI from frontend:", req.query.redirect_uri);
+      console.log("Redirect URI from ENV:", env.META_REDIRECT_URI);
+      console.log("Merchant:", merchantId);
+      console.log("======================================");
+
       const tokenExchange = await whatsappService.exchangeCodeForToken(
         String(code),
         resolvedRedirectUri
