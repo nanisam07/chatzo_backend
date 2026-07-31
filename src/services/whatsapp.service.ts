@@ -20,55 +20,47 @@ interface SendMessageOptions {
 export const whatsappService = {
   // Exchange OAuth code for access token
   async exchangeCodeForToken(
-  code: string,
-  redirectUri?: string
-): Promise<{
-  accessToken: string;
-  tokenExpiry?: Date;
-}> {
+    code: string,
+    redirectUri?: string
+  ): Promise<{
+    accessToken: string;
+    tokenExpiry?: Date;
+  }> {
+    const body = new URLSearchParams({
+      client_id: env.META_APP_ID,
+      client_secret: env.META_APP_SECRET,
+      code,
+    });
 
-  console.log("========== TOKEN EXCHANGE ==========");
-  console.log("APP_ID:", env.META_APP_ID);
-  console.log("REDIRECT_URI:", redirectUri);
-  console.log("GRAPH_VERSION:", env.META_GRAPH_VERSION);
-
-  const body = new URLSearchParams({
-    client_id: env.META_APP_ID,
-    client_secret: env.META_APP_SECRET,
-    code,
-  });
-
-  if (redirectUri) {
-    body.append("redirect_uri", redirectUri);
-  }
-
-  const res = await fetch(
-    `https://graph.facebook.com/${env.META_GRAPH_VERSION}/oauth/access_token`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body,
+    if (redirectUri) {
+      body.append("redirect_uri", redirectUri);
     }
-  );
 
-  const data = await res.json() as any;
+    const res = await fetch(
+      `https://graph.facebook.com/${env.META_GRAPH_VERSION}/oauth/access_token`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body,
+      }
+    );
 
-  console.log("META TOKEN RESPONSE:");
-  console.log(JSON.stringify(data, null, 2));
+    const data = (await res.json()) as any;
 
-  if (!res.ok || data.error) {
-    throw new Error(data.error?.message || "Token exchange failed");
-  }
+    if (!res.ok || data.error) {
+      console.error("[WhatsApp] Token exchange error response:", data.error);
+      throw new Error(data.error?.message || "Failed to exchange authorization code for token");
+    }
 
-  return {
-    accessToken: data.access_token,
-    tokenExpiry: data.expires_in
-      ? new Date(Date.now() + data.expires_in * 1000)
-      : undefined,
-  };
-},
+    return {
+      accessToken: data.access_token,
+      tokenExpiry: data.expires_in
+        ? new Date(Date.now() + data.expires_in * 1000)
+        : undefined,
+    };
+  },
   // Fetch WABA details shared with the token
   async fetchAccountDetails(token: string): Promise<{
     businessId: string;

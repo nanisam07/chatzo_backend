@@ -57,10 +57,7 @@ export const connectAccount = async (req: Request, res: Response, next: NextFunc
       return;
     }
 
-    const isAjax = !!req.headers.authorization;
-    const resolvedRedirectUri = redirect_uri !== undefined 
-      ? String(redirect_uri) 
-      : (isAjax ? undefined : env.META_REDIRECT_URI);
+    const resolvedRedirectUri = redirect_uri ? String(redirect_uri) : undefined;
 
     let accountDetails: {
       businessId: string;
@@ -86,12 +83,10 @@ export const connectAccount = async (req: Request, res: Response, next: NextFunc
       };
     } else {
       // Real flow
-      console.log("========== META OAUTH DEBUG ==========");
-      console.log("Authorization Code:", req.query.code);
-      console.log("Redirect URI from frontend:", req.query.redirect_uri);
-      console.log("Redirect URI from ENV:", env.META_REDIRECT_URI);
-      console.log("Merchant:", merchantId);
-      console.log("======================================");
+      console.log("[WhatsApp] Exchanging authorization code for token");
+      console.log("[WhatsApp] Merchant ID:", merchantId);
+      console.log("[WhatsApp] Code:", code);
+      console.log("[WhatsApp] Resolved Redirect URI:", resolvedRedirectUri);
 
       const tokenExchange = await whatsappService.exchangeCodeForToken(
         String(code),
