@@ -51,6 +51,11 @@ export const whatsappService = {
     if (redirectUri) {
       body.append("redirect_uri", redirectUri);
     }
+    console.log("===== TOKEN EXCHANGE =====");
+console.log("META_APP_ID:", env.META_APP_ID);
+console.log("redirectUri:", redirectUri);
+console.log("BODY:", body.toString());
+console.log("==========================");
 
     const res = await fetch(
       "https://graph.facebook.com/v23.0/oauth/access_token",
