@@ -40,7 +40,7 @@ export const whatsappService = {
     accessToken: string;
     tokenExpiry?: Date;
   }> {
-    console.log("[Token Exchange] Exchanging authorization code via Meta Graph API v23.0");
+    console.log("[Token Exchange] Exchanging authorization code via Meta Graph API v26.0");
 
     const body = new URLSearchParams({
       client_id: env.META_APP_ID,
@@ -53,7 +53,7 @@ export const whatsappService = {
     }
 
     const res = await fetch(
-      "https://graph.facebook.com/v23.0/oauth/access_token",
+      "https://graph.facebook.com/v26.0/oauth/access_token",
       {
         method: "POST",
         headers: {
@@ -94,10 +94,10 @@ export const whatsappService = {
     displayPhoneNumber: string;
     businessName: string;
   }> {
-    console.log("[Account Fetch] Fetching shared WhatsApp Business Accounts from Meta Graph API v23.0...");
+    console.log("[Account Fetch] Fetching shared WhatsApp Business Accounts from Meta Graph API v26.0...");
 
     // 1. Get shared WhatsApp Business Accounts
-    const wabaUrl = `https://graph.facebook.com/v23.0/me/whatsapp_business_accounts?access_token=${token}`;
+    const wabaUrl = `https://graph.facebook.com/v26.0/me/whatsapp_business_accounts?access_token=${token}`;
     const wabaRes = await fetch(wabaUrl);
     const wabaData = (await wabaRes.json()) as any;
 
@@ -124,7 +124,7 @@ export const whatsappService = {
 
     // 2. Get phone numbers registered with this WABA
     console.log("[Account Fetch] Fetching phone numbers for WABA:", wabaId);
-    const phoneUrl = `https://graph.facebook.com/v23.0/${wabaId}/phone_numbers?access_token=${token}`;
+    const phoneUrl = `https://graph.facebook.com/v26.0/${wabaId}/phone_numbers?access_token=${token}`;
     const phoneRes = await fetch(phoneUrl);
     const phoneData = (await phoneRes.json()) as any;
 
@@ -329,9 +329,9 @@ export const whatsappService = {
     let metaMessageId = "mock_msg_id_" + Math.random().toString(36).substr(2, 9);
     
     if (env.META_APP_ID && accessToken && accessToken !== "mock_token") {
-      const url = `https://graph.facebook.com/v23.0/${phoneNumberId}/messages`;
+      const url = `https://graph.facebook.com/v26.0/${phoneNumberId}/messages`;
       try {
-        console.log("[Graph API] Sending WhatsApp message via Meta Cloud API v23.0...");
+        console.log("[Graph API] Sending WhatsApp message via Meta Cloud API v26.0...");
         const response = await fetch(url, {
           method: "POST",
           headers: {
