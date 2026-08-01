@@ -51,11 +51,6 @@ export const whatsappService = {
     if (redirectUri) {
       body.append("redirect_uri", redirectUri);
     }
-    console.log("===== TOKEN EXCHANGE =====");
-console.log("META_APP_ID:", env.META_APP_ID);
-console.log("redirectUri:", redirectUri);
-console.log("BODY:", body.toString());
-console.log("==========================");
 
     const res = await fetch(
       "https://graph.facebook.com/v23.0/oauth/access_token",
@@ -99,7 +94,7 @@ console.log("==========================");
     displayPhoneNumber: string;
     businessName: string;
   }> {
-    console.log("[Account Details] Fetching shared WhatsApp Business Accounts from Meta Graph API v23.0...");
+    console.log("[Account Fetch] Fetching shared WhatsApp Business Accounts from Meta Graph API v23.0...");
 
     // 1. Get shared WhatsApp Business Accounts
     const wabaUrl = `https://graph.facebook.com/v23.0/me/whatsapp_business_accounts?access_token=${token}`;
@@ -108,7 +103,7 @@ console.log("==========================");
 
     if (!wabaRes.ok || wabaData.error) {
       const errorObj = wabaData.error || {};
-      console.error("[Account Details] Fetching WhatsApp Business Accounts failed:", errorObj);
+      console.error("[Account Fetch] Fetching WhatsApp Business Accounts failed:", errorObj);
       throw new MetaOAuthError(
         errorObj.message || "Failed to fetch WhatsApp Business Accounts",
         errorObj.code,
@@ -118,24 +113,24 @@ console.log("==========================");
     }
 
     if (!wabaData.data || wabaData.data.length === 0) {
-      console.error("[Account Details] No WhatsApp Business Accounts linked to this token");
+      console.error("[Account Fetch] No WhatsApp Business Accounts linked to this token");
       throw new Error("No WhatsApp Business Accounts linked to this token");
     }
 
     const firstAccount = wabaData.data[0];
     const wabaId = firstAccount.id;
     const businessName = firstAccount.name || "My WhatsApp Store";
-    console.log("[Account Details] Shared WABA retrieved successfully. WABA ID:", wabaId);
+    console.log("[Account Fetch] Shared WABA retrieved successfully. WABA ID:", wabaId);
 
     // 2. Get phone numbers registered with this WABA
-    console.log("[Account Details] Fetching phone numbers for WABA:", wabaId);
+    console.log("[Account Fetch] Fetching phone numbers for WABA:", wabaId);
     const phoneUrl = `https://graph.facebook.com/v23.0/${wabaId}/phone_numbers?access_token=${token}`;
     const phoneRes = await fetch(phoneUrl);
     const phoneData = (await phoneRes.json()) as any;
 
     if (!phoneRes.ok || phoneData.error) {
       const errorObj = phoneData.error || {};
-      console.error("[Account Details] Fetching phone numbers failed:", errorObj);
+      console.error("[Account Fetch] Fetching phone numbers failed:", errorObj);
       throw new MetaOAuthError(
         errorObj.message || "Failed to fetch phone numbers from WhatsApp Business Account",
         errorObj.code,
@@ -145,14 +140,14 @@ console.log("==========================");
     }
 
     if (!phoneData.data || phoneData.data.length === 0) {
-      console.error("[Account Details] No phone numbers registered with this WhatsApp Business Account");
+      console.error("[Account Fetch] No phone numbers registered with this WhatsApp Business Account");
       throw new Error("No phone numbers registered with this WhatsApp Business Account");
     }
 
     const firstPhone = phoneData.data[0];
     const phoneNumberId = firstPhone.id;
     const displayPhoneNumber = firstPhone.display_phone_number || "";
-    console.log("[Account Details] Registered phone numbers retrieved successfully. Phone ID:", phoneNumberId);
+    console.log("[Account Fetch] Registered phone numbers retrieved successfully. Phone ID:", phoneNumberId);
 
     // 3. For businessId, fetch WABA profile to resolve business owner
     const businessId = firstAccount.owner_business_info?.id || "1234567890";
@@ -203,7 +198,7 @@ console.log("==========================");
         data: {
           lastMessage: text,
           time: cleanTime,
-          unread: sender === "customer" ? thread.unread + 1 : 0, // Reset unread if merchant replies
+          unread: sender === "customer" ? thread.unread + 1 : 0,
         },
       });
     }
@@ -336,6 +331,7 @@ console.log("==========================");
     if (env.META_APP_ID && accessToken && accessToken !== "mock_token") {
       const url = `https://graph.facebook.com/v23.0/${phoneNumberId}/messages`;
       try {
+        console.log("[Graph API] Sending WhatsApp message via Meta Cloud API v23.0...");
         const response = await fetch(url, {
           method: "POST",
           headers: {
@@ -346,12 +342,12 @@ console.log("==========================");
         });
         const responseData = (await response.json()) as any;
         if (!response.ok || responseData.error) {
-          console.error("Meta API Message Send Error:", responseData.error);
+          console.error("[Graph API] Meta API Message Send Error:", responseData.error);
         } else {
           metaMessageId = responseData.messages?.[0]?.id || metaMessageId;
         }
       } catch (err) {
-        console.error("Failed to make request to Meta API:", err);
+        console.error("[Graph API] Failed to make request to Meta API:", err);
       }
     }
 

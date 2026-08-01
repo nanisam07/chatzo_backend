@@ -14,7 +14,7 @@ const router = Router();
 router.use(authenticate);
 
 router.get("/status", getStatus);
-router.get("/connect", connectAccount);
+router.post("/connect", connectAccount);
 router.get("/profile", getProfile);
 router.post("/disconnect", disconnectAccount);
 router.get("/chats", getChats);

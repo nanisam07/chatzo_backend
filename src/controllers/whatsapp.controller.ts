@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { PrismaClient } from "@prisma/client";
 import { whatsappService, MetaOAuthError } from "../services/whatsapp.service";
-import { encrypt, decrypt } from "../utils/crypto";
+import { encrypt } from "../utils/crypto";
 import { env } from "../config/env";
 
 const prisma = new PrismaClient();
@@ -51,16 +51,11 @@ export const connectAccount = async (req: Request, res: Response, next: NextFunc
       return;
     }
 
-    const { code, redirect_uri } = req.query;
+    const { code } = req.body;
     if (!code) {
       res.status(400).json({ success: false, message: "Authorization code is required" });
       return;
     }
-
-    // Never send "undefined" or empty string redirect_uri
-    const resolvedRedirectUri = redirect_uri && String(redirect_uri) !== "undefined" && String(redirect_uri).trim() !== ""
-      ? String(redirect_uri)
-      : undefined;
 
     let accountDetails: {
       businessId: string;
@@ -74,7 +69,7 @@ export const connectAccount = async (req: Request, res: Response, next: NextFunc
 
     // If using mock code or Meta credentials are not fully set up, fallback to mock details
     if (code === "mock_code" || code === "test_code" || !env.META_APP_ID || !env.META_APP_SECRET) {
-      console.log("[OAuth] Using Sandbox Demo/Mock onboarding setup");
+      console.log("[Embedded Signup] Using Sandbox Demo/Mock onboarding setup");
       accountDetails = {
         businessId: "109876543210987",
         wabaId: "209876543210988",
@@ -87,11 +82,8 @@ export const connectAccount = async (req: Request, res: Response, next: NextFunc
     } else {
       // Real flow
       try {
-        console.log("[OAuth] Received connection request from frontend. Initiating token exchange...");
-        const tokenExchange = await whatsappService.exchangeCodeForToken(
-          String(code),
-          resolvedRedirectUri
-        );
+        console.log("[Embedded Signup] Received connection request from frontend. Initiating token exchange...");
+        const tokenExchange = await whatsappService.exchangeCodeForToken(String(code));
         const details = await whatsappService.fetchAccountDetails(tokenExchange.accessToken);
         accountDetails = {
           ...details,
@@ -120,6 +112,7 @@ export const connectAccount = async (req: Request, res: Response, next: NextFunc
     }
 
     // Encrypt access token before storing
+    console.log(`[Database] Encrypting access token and upserting WhatsAppAccount for merchantId: ${merchantId}`);
     const encryptedToken = encrypt(accountDetails.accessToken);
 
     // Create or update WhatsAppAccount record
@@ -206,7 +199,6 @@ export const disconnectAccount = async (req: Request, res: Response, next: NextF
       return;
     }
 
-    // Preserve the record by updating connectionStatus as requested
     const account = await prisma.whatsAppAccount.findUnique({
       where: { merchantId },
     });
@@ -250,7 +242,6 @@ export const getChats = async (req: Request, res: Response, next: NextFunction):
       orderBy: { id: "desc" },
     });
 
-    // Map to ChatItem[] type required by frontend
     const chatsList = threads.map((t) => ({
       id: t.id,
       name: t.name,
