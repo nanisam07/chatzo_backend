@@ -8,9 +8,15 @@ import {
   getChats,
   sendChat,
 } from "../controllers/whatsapp.controller";
+import {
+  verifyWebhook,
+  receiveWebhook,
+} from "../controllers/whatsapp.controller";
+
 
 const router = Router();
-
+router.get("/webhook", verifyWebhook);
+router.post("/webhook", receiveWebhook);
 router.use(authenticate);
 
 router.get("/status", getStatus);

@@ -303,3 +303,35 @@ export const sendChat = async (req: Request, res: Response, next: NextFunction):
     next(error);
   }
 };
+export const verifyWebhook = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+
+  const mode = req.query["hub.mode"];
+  const token = req.query["hub.verify_token"];
+  const challenge = req.query["hub.challenge"];
+
+  if (
+    mode === "subscribe" &&
+    token === env.META_VERIFY_TOKEN
+  ) {
+    console.log("[Webhook] Verification successful");
+    res.status(200).send(challenge);
+    return;
+  }
+
+  console.log("[Webhook] Verification failed");
+  res.sendStatus(403);
+};
+
+export const receiveWebhook = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+
+  console.log("[Webhook] Incoming Event");
+  console.log(JSON.stringify(req.body, null, 2));
+
+  res.sendStatus(200);
+};
