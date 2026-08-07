@@ -43,10 +43,11 @@ export const whatsappService = {
     console.log("[Token Exchange] Exchanging authorization code via Meta Graph API v26.0");
 
     const body = new URLSearchParams({
-      client_id: env.META_APP_ID,
-      client_secret: env.META_APP_SECRET,
-      code,
-    });
+  client_id: env.META_APP_ID,
+  client_secret: env.META_APP_SECRET,
+  code,
+  redirect_uri: env.META_REDIRECT_URI,
+});
 
     if (redirectUri) {
       body.append("redirect_uri", redirectUri);
