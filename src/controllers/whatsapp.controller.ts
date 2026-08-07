@@ -83,7 +83,11 @@ export const connectAccount = async (req: Request, res: Response, next: NextFunc
       // Real flow
       try {
         console.log("[Embedded Signup] Received connection request from frontend. Initiating token exchange...");
-        const tokenExchange = await whatsappService.exchangeCodeForToken(String(code));
+        const tokenExchange =
+  await whatsappService.exchangeCodeForToken(
+      String(code),
+      env.META_REDIRECT_URI
+  );
         const details = await whatsappService.fetchAccountDetails(tokenExchange.accessToken);
         accountDetails = {
           ...details,
