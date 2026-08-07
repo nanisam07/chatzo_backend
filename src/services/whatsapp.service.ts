@@ -62,6 +62,9 @@ export const whatsappService = {
         body,
       }
     );
+    console.log("redirectUri =", redirectUri);
+
+console.log(body.toString());
 
     const data = (await res.json()) as any;
 
