@@ -51,7 +51,7 @@ export const connectAccount = async (req: Request, res: Response, next: NextFunc
       return;
     }
 
-    const { code } = req.body;
+    const { code, wabaId: inputWabaId, phoneNumberId: inputPhoneNumberId } = req.body;
     if (!code) {
       res.status(400).json({ success: false, message: "Authorization code is required" });
       return;
@@ -67,33 +67,68 @@ export const connectAccount = async (req: Request, res: Response, next: NextFunc
       tokenExpiry?: Date;
     };
 
-    // If using mock code or Meta credentials are not fully set up, fallback to mock details
-    if (code === "mock_code" || code === "test_code" || !env.META_APP_ID || !env.META_APP_SECRET) {
-      console.log("[Embedded Signup] Using Sandbox Demo/Mock onboarding setup");
+    let isWebhookVerified = false;
+    let isPhoneStateVerified = false;
+
+    // Sandbox/Mock fallback allowed ONLY in development mode when explicitly passed mock codes
+    const isMockRequest = (code === "mock_code" || code === "test_code");
+    if (isMockRequest && env.NODE_ENV === "development") {
+      console.log("[Embedded Signup] Development environment detected: Using Sandbox Demo/Mock onboarding setup");
       accountDetails = {
         businessId: "109876543210987",
-        wabaId: "209876543210988",
-        phoneNumberId: "309876543210989",
+        wabaId: inputWabaId || "209876543210988",
+        phoneNumberId: inputPhoneNumberId || "309876543210989",
         displayPhoneNumber: "+1 555-0100",
         businessName: "OFFSHIFT Demo Shop",
         accessToken: env.WHATSAPP_ACCESS_TOKEN || "mock_developer_access_token",
         tokenExpiry: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000), // 60 days
       };
+      isWebhookVerified = true;
+      isPhoneStateVerified = true;
     } else {
-      // Real flow
+      // Real Meta Onboarding Flow
       try {
-        console.log("[Embedded Signup] Received connection request from frontend. Initiating token exchange...");
-        const tokenExchange =
-  await whatsappService.exchangeCodeForToken(
-      String(code),
-      env.META_REDIRECT_URI
-  );
-        const details = await whatsappService.fetchAccountDetails(tokenExchange.accessToken);
+        console.log("[Embedded Signup] Received connection request from frontend. Initiating Meta token exchange...");
+        const tokenExchange = await whatsappService.exchangeCodeForToken(
+          String(code),
+          env.META_REDIRECT_URI
+        );
+
+        const details = await whatsappService.fetchAccountDetails(
+          tokenExchange.accessToken,
+          inputWabaId,
+          inputPhoneNumberId
+        );
+
         accountDetails = {
           ...details,
           accessToken: tokenExchange.accessToken,
           tokenExpiry: tokenExchange.tokenExpiry,
         };
+
+        // 1. Execute WABA Webhook App Subscription (POST /{waba_id}/subscribed_apps)
+        console.log(`[Embedded Signup] Subscribing WABA ID ${accountDetails.wabaId} to webhooks...`);
+        const subResult = await whatsappService.subscribeWaba(
+          accountDetails.wabaId,
+          accountDetails.accessToken
+        );
+
+        isWebhookVerified = subResult.success;
+        if (!subResult.success) {
+          console.warn("[Embedded Signup] WABA webhook subscription did not complete cleanly:", subResult.data);
+        }
+
+        // 2. Inspect phone registration & readiness state without hardcoding PINs
+        console.log(`[Embedded Signup] Verifying phone readiness for Phone ID ${accountDetails.phoneNumberId}...`);
+        const phoneState = await whatsappService.verifyPhoneState(
+          accountDetails.phoneNumberId,
+          accountDetails.accessToken
+        );
+
+        isPhoneStateVerified = phoneState.isRegistered;
+        if (!phoneState.isRegistered) {
+          console.warn("[Embedded Signup] Phone number verification state on Meta Cloud API is incomplete.");
+        }
       } catch (exchangeError: any) {
         if (exchangeError instanceof MetaOAuthError) {
           res.status(400).json({
@@ -109,11 +144,14 @@ export const connectAccount = async (req: Request, res: Response, next: NextFunc
         }
         res.status(400).json({
           success: false,
-          message: exchangeError.message || "Failed to exchange Meta authorization code",
+          message: exchangeError.message || "Failed to complete Meta WhatsApp onboarding",
         });
         return;
       }
     }
+
+    // Determine Connection Status strictly based on successful Meta onboarding
+    const finalConnectionStatus = (isPhoneStateVerified || isMockRequest) ? "Connected" : "Pending Verification";
 
     // Encrypt access token before storing
     console.log(`[Database] Encrypting access token and upserting WhatsAppAccount for merchantId: ${merchantId}`);
@@ -131,8 +169,8 @@ export const connectAccount = async (req: Request, res: Response, next: NextFunc
         businessName: accountDetails.businessName,
         accessToken: encryptedToken,
         tokenExpiry: accountDetails.tokenExpiry,
-        connectionStatus: "Connected",
-        webhookVerified: true,
+        connectionStatus: finalConnectionStatus,
+        webhookVerified: isWebhookVerified,
       },
       update: {
         businessId: accountDetails.businessId,
@@ -142,20 +180,23 @@ export const connectAccount = async (req: Request, res: Response, next: NextFunc
         businessName: accountDetails.businessName,
         accessToken: encryptedToken,
         tokenExpiry: accountDetails.tokenExpiry,
-        connectionStatus: "Connected",
-        webhookVerified: true,
+        connectionStatus: finalConnectionStatus,
+        webhookVerified: isWebhookVerified,
       },
     });
 
     res.json({
       success: true,
-      message: "WhatsApp Business Account connected successfully",
+      message: finalConnectionStatus === "Connected" 
+        ? "WhatsApp Business Account connected successfully" 
+        : "WhatsApp Business Account connected, awaiting phone verification on Meta",
       data: {
         wabaId: account.wabaId,
         phoneNumberId: account.phoneNumberId,
         displayPhoneNumber: account.displayPhoneNumber,
         businessName: account.businessName,
         connectionStatus: account.connectionStatus,
+        webhookVerified: account.webhookVerified,
       },
     });
   } catch (error) {

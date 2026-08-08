@@ -9,10 +9,6 @@ export const authenticate = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    console.log("========== AUTH ==========");
-    console.log("Authorization:", req.headers.authorization);
-    console.log("Cookie:", req.cookies);
-
     let token: string | undefined;
 
     const authHeader = req.headers.authorization;
@@ -23,11 +19,12 @@ export const authenticate = async (
       token = req.cookies.accessToken;
     }
 
-    console.log("Token:", token);
+    if (!token) {
+      next(new UnauthorizedError("Authentication token is required"));
+      return;
+    }
 
-    const payload = verifyAccessToken(token!);
-
-    console.log("Payload:", payload);
+    const payload = verifyAccessToken(token);
 
     const user = await prisma.user.findUnique({
       where: {
@@ -38,13 +35,14 @@ export const authenticate = async (
       },
     });
 
-    console.log("User:", user);
+    if (!user) {
+      next(new UnauthorizedError("User account not found"));
+      return;
+    }
 
-    req.user = user!;
+    req.user = user;
     next();
   } catch (err) {
-    console.error("AUTH ERROR");
-    console.error(err);
     next(err);
   }
 };

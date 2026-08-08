@@ -90,8 +90,12 @@ console.log(body.toString());
     };
   },
 
-  // Fetch WABA details shared with the token
-  async fetchAccountDetails(token: string): Promise<{
+  // Fetch WABA details shared with the token (with support for exact WABA ID & Phone Number ID from Embedded Signup)
+  async fetchAccountDetails(
+    token: string,
+    inputWabaId?: string,
+    inputPhoneNumberId?: string
+  ): Promise<{
     businessId: string;
     wabaId: string;
     phoneNumberId: string;
@@ -121,10 +125,19 @@ console.log(body.toString());
       throw new Error("No WhatsApp Business Accounts linked to this token");
     }
 
-    const firstAccount = wabaData.data[0];
-    const wabaId = firstAccount.id;
-    const businessName = firstAccount.name || "My WhatsApp Store";
-    console.log("[Account Fetch] Shared WABA retrieved successfully. WABA ID:", wabaId);
+    let targetWaba = wabaData.data[0];
+    if (inputWabaId) {
+      const matched = wabaData.data.find((acc: any) => acc.id === inputWabaId);
+      if (matched) {
+        targetWaba = matched;
+        console.log("[Account Fetch] Matched exact WABA ID from Embedded Signup payload:", inputWabaId);
+      } else {
+        console.warn("[Account Fetch] Specified inputWabaId not found in shared accounts array, defaulting to first WABA:", targetWaba.id);
+      }
+    }
+
+    const wabaId = targetWaba.id;
+    const businessName = targetWaba.name || "My WhatsApp Store";
 
     // 2. Get phone numbers registered with this WABA
     console.log("[Account Fetch] Fetching phone numbers for WABA:", wabaId);
@@ -148,13 +161,22 @@ console.log(body.toString());
       throw new Error("No phone numbers registered with this WhatsApp Business Account");
     }
 
-    const firstPhone = phoneData.data[0];
-    const phoneNumberId = firstPhone.id;
-    const displayPhoneNumber = firstPhone.display_phone_number || "";
-    console.log("[Account Fetch] Registered phone numbers retrieved successfully. Phone ID:", phoneNumberId);
+    let targetPhone = phoneData.data[0];
+    if (inputPhoneNumberId) {
+      const matchedPhone = phoneData.data.find((p: any) => p.id === inputPhoneNumberId);
+      if (matchedPhone) {
+        targetPhone = matchedPhone;
+        console.log("[Account Fetch] Matched exact Phone Number ID from Embedded Signup payload:", inputPhoneNumberId);
+      } else {
+        console.warn("[Account Fetch] Specified inputPhoneNumberId not found in WABA phone numbers, defaulting to first number:", targetPhone.id);
+      }
+    }
 
-    // 3. For businessId, fetch WABA profile to resolve business owner
-    const businessId = firstAccount.owner_business_info?.id || "1234567890";
+    const phoneNumberId = targetPhone.id;
+    const displayPhoneNumber = targetPhone.display_phone_number || "";
+    console.log("[Account Fetch] Registered phone number ID validated:", phoneNumberId);
+
+    const businessId = targetWaba.owner_business_info?.id || "1234567890";
 
     return {
       businessId,
@@ -163,6 +185,88 @@ console.log(body.toString());
       displayPhoneNumber,
       businessName,
     };
+  },
+
+  // Subscribe WABA to the app's webhooks (POST /{waba_id}/subscribed_apps)
+  async subscribeWaba(
+    wabaId: string,
+    accessToken: string
+  ): Promise<{ success: boolean; data?: any }> {
+    console.log(`[WABA Subscription] Subscribing WABA ID: ${wabaId} to app webhooks...`);
+    const subscribeUrl = `https://graph.facebook.com/v26.0/${wabaId}/subscribed_apps`;
+
+    try {
+      const res = await fetch(subscribeUrl, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      const responseData = (await res.json()) as any;
+
+      if (!res.ok || responseData.error) {
+        const errorObj = responseData.error || {};
+        console.error("[WABA Subscription] Subscription request failed:", errorObj.message || errorObj);
+        return { success: false, data: errorObj };
+      }
+
+      console.log("[WABA Subscription] Successfully subscribed WABA to webhooks.");
+      return { success: true, data: responseData };
+    } catch (err: any) {
+      console.error("[WABA Subscription] Exception during subscription request:", err.message || err);
+      return { success: false, data: err };
+    }
+  },
+
+  // Inspect phone number state on Meta Cloud API without hardcoding PINs
+  async verifyPhoneState(
+    phoneNumberId: string,
+    accessToken: string
+  ): Promise<{
+    isRegistered: boolean;
+    displayPhoneNumber?: string;
+    verifiedName?: string;
+    codeVerificationStatus?: string;
+    qualityRating?: string;
+  }> {
+    console.log(`[Phone Verification] Inspecting Meta phone state for Phone ID: ${phoneNumberId}...`);
+    const url = `https://graph.facebook.com/v26.0/${phoneNumberId}?fields=id,display_phone_number,verified_name,code_verification_status,quality_rating,status`;
+
+    try {
+      const res = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      const data = (await res.json()) as any;
+
+      if (!res.ok || data.error) {
+        console.error("[Phone Verification] Meta phone state lookup failed:", data.error?.message || data.error);
+        return { isRegistered: false };
+      }
+
+      console.log(`[Phone Verification] Phone state fetched. Verification status: ${data.code_verification_status || "N/A"}`);
+
+      const isRegistered =
+        data.code_verification_status === "VERIFIED" ||
+        data.status === "APPROVED" ||
+        data.status === "CONNECTED" ||
+        Boolean(data.display_phone_number);
+
+      return {
+        isRegistered,
+        displayPhoneNumber: data.display_phone_number,
+        verifiedName: data.verified_name,
+        codeVerificationStatus: data.code_verification_status,
+        qualityRating: data.quality_rating,
+      };
+    } catch (err: any) {
+      console.error("[Phone Verification] Exception verifying phone state:", err.message || err);
+      return { isRegistered: false };
+    }
   },
 
   // Persist conversation and message to Database
