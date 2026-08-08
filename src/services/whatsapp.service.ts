@@ -40,38 +40,48 @@ export const whatsappService = {
     accessToken: string;
     tokenExpiry?: Date;
   }> {
-    console.log("[Token Exchange] Exchanging authorization code via Meta Graph API v26.0");
+    console.log("[Token Exchange] Exchanging authorization code via Meta Graph API v26.0...");
 
-    const body = new URLSearchParams({
-  client_id: env.META_APP_ID,
-  client_secret: env.META_APP_SECRET,
-  code,
-  redirect_uri: env.META_REDIRECT_URI,
-});
+    const targetRedirectUri = redirectUri ?? env.META_REDIRECT_URI ?? "";
 
-    if (redirectUri) {
-      body.append("redirect_uri", redirectUri);
-    }
+    const requestToken = async (uri: string) => {
+      const body = new URLSearchParams({
+        client_id: env.META_APP_ID,
+        client_secret: env.META_APP_SECRET,
+        code,
+        redirect_uri: uri,
+      });
 
-    const res = await fetch(
-      "https://graph.facebook.com/v26.0/oauth/access_token",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body,
+      const res = await fetch(
+        "https://graph.facebook.com/v26.0/oauth/access_token",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body,
+        }
+      );
+      return { res, data: (await res.json()) as any };
+    };
+
+    // First attempt with specified/configured redirect_uri (single parameter)
+    let { res, data } = await requestToken(targetRedirectUri);
+
+    // If subcode 36008 (OAuth redirect_uri mismatch) and targetRedirectUri was non-empty,
+    // retry with empty string "" (standard Meta JS SDK FB.login popup requirement)
+    if ((!res.ok || data.error) && data.error?.error_subcode === 36008 && targetRedirectUri !== "") {
+      console.warn("[Token Exchange] Subcode 36008 encountered with redirect_uri. Retrying with empty redirect_uri for Facebook JS SDK login...");
+      const retryResult = await requestToken("");
+      if (retryResult.res.ok && !retryResult.data.error) {
+        res = retryResult.res;
+        data = retryResult.data;
       }
-    );
-    console.log("redirectUri =", redirectUri);
-
-console.log(body.toString());
-
-    const data = (await res.json()) as any;
+    }
 
     if (!res.ok || data.error) {
       const errorObj = data.error || {};
-      console.error("[Token Exchange] Meta token exchange failed:", errorObj);
+      console.error("[Token Exchange] Meta token exchange failed:", errorObj.message || errorObj);
       throw new MetaOAuthError(
         errorObj.message || "Meta token exchange failed",
         errorObj.code,
