@@ -40,44 +40,36 @@ export const whatsappService = {
     accessToken: string;
     tokenExpiry?: Date;
   }> {
-    console.log("[Token Exchange] Exchanging authorization code via Meta Graph API v26.0...");
+    // For Facebook JS SDK FB.login() Embedded Signup popups, redirect_uri MUST default to empty string ""
+    // because FB.login() modal popups generate authorization codes bound without a redirect_uri.
+    const effectiveRedirectUri = redirectUri !== undefined ? redirectUri : "";
 
-    const targetRedirectUri = redirectUri ?? env.META_REDIRECT_URI ?? "";
+    console.log("[Token Exchange Debug]");
+    console.log("SDK flow: FB.login Embedded Signup");
+    console.log("redirectUriUsed:", effectiveRedirectUri === "" ? "(empty string)" : effectiveRedirectUri);
+    console.log("redirectUriSource:", redirectUri !== undefined ? "explicit parameter" : "default (empty string for FB.login)");
+    console.log("hasCode:", Boolean(code));
+    console.log("hasAppId:", Boolean(env.META_APP_ID));
 
-    const requestToken = async (uri: string) => {
-      const body = new URLSearchParams({
-        client_id: env.META_APP_ID,
-        client_secret: env.META_APP_SECRET,
-        code,
-        redirect_uri: uri,
-      });
+    const body = new URLSearchParams({
+      client_id: env.META_APP_ID,
+      client_secret: env.META_APP_SECRET,
+      code,
+      redirect_uri: effectiveRedirectUri,
+    });
 
-      const res = await fetch(
-        "https://graph.facebook.com/v26.0/oauth/access_token",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
-          },
-          body,
-        }
-      );
-      return { res, data: (await res.json()) as any };
-    };
-
-    // First attempt with specified/configured redirect_uri (single parameter)
-    let { res, data } = await requestToken(targetRedirectUri);
-
-    // If subcode 36008 (OAuth redirect_uri mismatch) and targetRedirectUri was non-empty,
-    // retry with empty string "" (standard Meta JS SDK FB.login popup requirement)
-    if ((!res.ok || data.error) && data.error?.error_subcode === 36008 && targetRedirectUri !== "") {
-      console.warn("[Token Exchange] Subcode 36008 encountered with redirect_uri. Retrying with empty redirect_uri for Facebook JS SDK login...");
-      const retryResult = await requestToken("");
-      if (retryResult.res.ok && !retryResult.data.error) {
-        res = retryResult.res;
-        data = retryResult.data;
+    const res = await fetch(
+      "https://graph.facebook.com/v26.0/oauth/access_token",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body,
       }
-    }
+    );
+
+    const data = (await res.json()) as any;
 
     if (!res.ok || data.error) {
       const errorObj = data.error || {};
