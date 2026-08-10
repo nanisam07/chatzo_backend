@@ -51,11 +51,14 @@ export const connectAccount = async (req: Request, res: Response, next: NextFunc
       return;
     }
 
-    const { code, wabaId: inputWabaId, phoneNumberId: inputPhoneNumberId } = req.body;
+    const { code, wabaId: inputWabaId, phoneNumberId: inputPhoneNumberId, connectionRequestId } = req.body;
     if (!code) {
       res.status(400).json({ success: false, message: "Authorization code is required" });
       return;
     }
+
+    const requestId = connectionRequestId || `req_${Math.random().toString(36).substring(2, 9)}`;
+    console.log(`[Connect Request] Received connection request with connectionRequestId: ${requestId}`);
 
     let accountDetails: {
       businessId: string;
@@ -88,9 +91,11 @@ export const connectAccount = async (req: Request, res: Response, next: NextFunc
     } else {
       // Real Meta Onboarding Flow
       try {
-        console.log("[Embedded Signup] Received connection request from frontend. Initiating Meta token exchange...");
+        console.log(`[Embedded Signup] Initiating Meta token exchange for requestId: ${requestId}...`);
         const tokenExchange = await whatsappService.exchangeCodeForToken(
-          String(code)
+          String(code),
+          undefined,
+          requestId
         );
 
         const details = await whatsappService.fetchAccountDetails(

@@ -35,7 +35,8 @@ export const whatsappService = {
   // Exchange OAuth code for access token
   async exchangeCodeForToken(
     code: string,
-    redirectUri?: string
+    redirectUri?: string,
+    requestId?: string
   ): Promise<{
     accessToken: string;
     tokenExpiry?: Date;
@@ -43,13 +44,16 @@ export const whatsappService = {
     // For Facebook JS SDK FB.login() Embedded Signup popups, redirect_uri MUST default to empty string ""
     // because FB.login() modal popups generate authorization codes bound without a redirect_uri.
     const effectiveRedirectUri = redirectUri !== undefined ? redirectUri : "";
+    const connectionRequestId = requestId || "N/A";
 
-    console.log("[Token Exchange Debug]");
-    console.log("SDK flow: FB.login Embedded Signup");
-    console.log("redirectUriUsed:", effectiveRedirectUri === "" ? "(empty string)" : effectiveRedirectUri);
-    console.log("redirectUriSource:", redirectUri !== undefined ? "explicit parameter" : "default (empty string for FB.login)");
+    console.log("[Token Exchange Metadata]");
+    console.log("connectionRequestId:", connectionRequestId);
     console.log("hasCode:", Boolean(code));
-    console.log("hasAppId:", Boolean(env.META_APP_ID));
+    console.log("codeLength:", code ? code.length : 0);
+    console.log("appIdPresent:", Boolean(env.META_APP_ID));
+    console.log("backendAppId:", env.META_APP_ID);
+    console.log("redirectUriUsed:", effectiveRedirectUri === "" ? '""' : effectiveRedirectUri);
+    console.log('tokenExchangeEndpoint: "/oauth/access_token"');
 
     const body = new URLSearchParams({
       client_id: env.META_APP_ID,
@@ -73,7 +77,14 @@ export const whatsappService = {
 
     if (!res.ok || data.error) {
       const errorObj = data.error || {};
-      console.error("[Token Exchange] Meta token exchange failed:", errorObj.message || errorObj);
+      console.error("[Token Exchange Meta Error]");
+      console.error("connectionRequestId:", connectionRequestId);
+      console.error("message:", errorObj.message || "N/A");
+      console.error("type:", errorObj.type || "N/A");
+      console.error("code:", errorObj.code !== undefined ? errorObj.code : "N/A");
+      console.error("error_subcode:", errorObj.error_subcode !== undefined ? errorObj.error_subcode : "N/A");
+      console.error("fbtrace_id:", errorObj.fbtrace_id || "N/A");
+
       throw new MetaOAuthError(
         errorObj.message || "Meta token exchange failed",
         errorObj.code,
@@ -82,7 +93,7 @@ export const whatsappService = {
       );
     }
 
-    console.log("[Token Exchange] Token exchange successful.");
+    console.log("[Token Exchange] Token exchange successful for connectionRequestId:", connectionRequestId);
 
     return {
       accessToken: data.access_token,
