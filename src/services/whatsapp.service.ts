@@ -41,71 +41,68 @@ export const whatsappService = {
     accessToken: string;
     tokenExpiry?: Date;
   }> {
-    // For Facebook JS SDK FB.login() Embedded Signup popups, redirect_uri MUST NOT be included in request parameters.
-    // Standard OAuth redirects supply a non-empty redirectUri string.
-    const effectiveRedirectUri = redirectUri && redirectUri.trim() !== "" ? redirectUri.trim() : undefined;
     const connectionRequestId = requestId || "N/A";
+    const primaryUri = redirectUri && redirectUri.trim() !== "" ? redirectUri.trim() : undefined;
 
-    console.log("[Token Exchange Metadata]");
-    console.log("connectionRequestId:", connectionRequestId);
-    console.log("hasCode:", Boolean(code));
-    console.log("codeLength:", code ? code.length : 0);
-    console.log("appIdPresent:", Boolean(env.META_APP_ID));
-    console.log("backendAppId:", env.META_APP_ID);
-    console.log("redirectUriUsed:", effectiveRedirectUri || "NONE (Omitted for Embedded Signup)");
-    console.log('tokenExchangeEndpoint: "/oauth/access_token"');
+    // List candidate redirect URIs to attempt against Meta Graph API
+    const candidates: (string | undefined)[] = [
+      primaryUri,
+      "https://chatzo-frontend.vercel.app/",
+      "https://chatzo-frontend.vercel.app",
+      undefined,
+      "",
+    ].filter((v, i, a) => a.indexOf(v) === i);
 
-    const params: Record<string, string> = {
-      client_id: env.META_APP_ID,
-      client_secret: env.META_APP_SECRET,
-      code,
-    };
+    let lastErrorObj: any = null;
 
-    if (effectiveRedirectUri) {
-      params.redirect_uri = effectiveRedirectUri;
-    }
+    for (const testUri of candidates) {
+      console.log(`[Token Exchange Attempt] connectionRequestId: ${connectionRequestId}, redirect_uri: ${testUri !== undefined ? (testUri === "" ? '""' : testUri) : "OMITTED"}`);
 
-    const body = new URLSearchParams(params);
+      const params: Record<string, string> = {
+        client_id: env.META_APP_ID,
+        client_secret: env.META_APP_SECRET,
+        code,
+      };
 
-    const res = await fetch(
-      "https://graph.facebook.com/v26.0/oauth/access_token",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body,
+      if (testUri !== undefined) {
+        params.redirect_uri = testUri;
       }
-    );
 
-    const data = (await res.json()) as any;
+      const body = new URLSearchParams(params);
 
-    if (!res.ok || data.error) {
-      const errorObj = data.error || {};
-      console.error("[Token Exchange Meta Error]");
-      console.error("connectionRequestId:", connectionRequestId);
-      console.error("message:", errorObj.message || "N/A");
-      console.error("type:", errorObj.type || "N/A");
-      console.error("code:", errorObj.code !== undefined ? errorObj.code : "N/A");
-      console.error("error_subcode:", errorObj.error_subcode !== undefined ? errorObj.error_subcode : "N/A");
-      console.error("fbtrace_id:", errorObj.fbtrace_id || "N/A");
-
-      throw new MetaOAuthError(
-        errorObj.message || "Meta token exchange failed",
-        errorObj.code,
-        errorObj.error_subcode,
-        errorObj.fbtrace_id
+      const res = await fetch(
+        "https://graph.facebook.com/v26.0/oauth/access_token",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body,
+        }
       );
+
+      const data = (await res.json()) as any;
+
+      if (res.ok && !data.error && data.access_token) {
+        console.log(`[Token Exchange Success] Worked with redirect_uri: ${testUri !== undefined ? testUri : "OMITTED"} for requestId: ${connectionRequestId}`);
+        return {
+          accessToken: data.access_token,
+          tokenExpiry: data.expires_in ? new Date(Date.now() + data.expires_in * 1000) : undefined,
+        };
+      }
+
+      lastErrorObj = data.error || {};
+      console.warn(`[Token Exchange Meta Attempt Error] redirect_uri: ${testUri !== undefined ? testUri : "OMITTED"} - message: ${lastErrorObj.message || "N/A"} (code: ${lastErrorObj.code}, subcode: ${lastErrorObj.error_subcode})`);
     }
 
-    console.log("[Token Exchange] Token exchange successful for connectionRequestId:", connectionRequestId);
+    console.error("[Token Exchange All Attempts Failed]", connectionRequestId, lastErrorObj);
 
-    return {
-      accessToken: data.access_token,
-      tokenExpiry: data.expires_in
-        ? new Date(Date.now() + data.expires_in * 1000)
-        : undefined,
-    };
+    throw new MetaOAuthError(
+      lastErrorObj?.message || "Meta token exchange failed",
+      lastErrorObj?.code,
+      lastErrorObj?.error_subcode,
+      lastErrorObj?.fbtrace_id
+    );
   },
 
   // Fetch WABA details shared with the token (with support for exact WABA ID & Phone Number ID from Embedded Signup)
