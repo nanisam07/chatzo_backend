@@ -51,7 +51,7 @@ export const connectAccount = async (req: Request, res: Response, next: NextFunc
       return;
     }
 
-    const { code, wabaId: inputWabaId, phoneNumberId: inputPhoneNumberId, connectionRequestId } = req.body;
+    const { code, wabaId: inputWabaId, phoneNumberId: inputPhoneNumberId, connectionRequestId, redirectUri } = req.body;
     if (!code) {
       res.status(400).json({ success: false, message: "Authorization code is required" });
       return;
@@ -94,7 +94,7 @@ export const connectAccount = async (req: Request, res: Response, next: NextFunc
         console.log(`[Embedded Signup] Initiating Meta token exchange for requestId: ${requestId}...`);
         const tokenExchange = await whatsappService.exchangeCodeForToken(
           String(code),
-          undefined,
+          typeof redirectUri === "string" ? redirectUri : undefined,
           requestId
         );
 

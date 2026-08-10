@@ -41,9 +41,9 @@ export const whatsappService = {
     accessToken: string;
     tokenExpiry?: Date;
   }> {
-    // For Facebook JS SDK FB.login() Embedded Signup popups, redirect_uri MUST default to empty string ""
-    // because FB.login() modal popups generate authorization codes bound without a redirect_uri.
-    const effectiveRedirectUri = redirectUri !== undefined ? redirectUri : "";
+    // For Facebook JS SDK FB.login() Embedded Signup popups, redirect_uri MUST NOT be included in request parameters.
+    // Standard OAuth redirects supply a non-empty redirectUri string.
+    const effectiveRedirectUri = redirectUri && redirectUri.trim() !== "" ? redirectUri.trim() : undefined;
     const connectionRequestId = requestId || "N/A";
 
     console.log("[Token Exchange Metadata]");
@@ -52,15 +52,20 @@ export const whatsappService = {
     console.log("codeLength:", code ? code.length : 0);
     console.log("appIdPresent:", Boolean(env.META_APP_ID));
     console.log("backendAppId:", env.META_APP_ID);
-    console.log("redirectUriUsed:", effectiveRedirectUri === "" ? '""' : effectiveRedirectUri);
+    console.log("redirectUriUsed:", effectiveRedirectUri || "NONE (Omitted for Embedded Signup)");
     console.log('tokenExchangeEndpoint: "/oauth/access_token"');
 
-    const body = new URLSearchParams({
+    const params: Record<string, string> = {
       client_id: env.META_APP_ID,
       client_secret: env.META_APP_SECRET,
       code,
-      redirect_uri: effectiveRedirectUri,
-    });
+    };
+
+    if (effectiveRedirectUri) {
+      params.redirect_uri = effectiveRedirectUri;
+    }
+
+    const body = new URLSearchParams(params);
 
     const res = await fetch(
       "https://graph.facebook.com/v26.0/oauth/access_token",
