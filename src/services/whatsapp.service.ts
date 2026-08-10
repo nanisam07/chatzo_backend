@@ -43,6 +43,9 @@ export const whatsappService = {
   }> {
     const connectionRequestId = requestId || "N/A";
     const primaryUri = redirectUri && redirectUri.trim() !== "" ? redirectUri.trim() : undefined;
+    const graphVersion = env.META_GRAPH_VERSION || "v20.0";
+
+    console.log(`[Token Exchange Metadata] requestId: ${connectionRequestId}, appId: ${env.META_APP_ID}, graphVersion: ${graphVersion}, appSecretLen: ${env.META_APP_SECRET ? env.META_APP_SECRET.length : 0}`);
 
     // List candidate redirect URIs to attempt against Meta Graph API
     const candidates: (string | undefined)[] = [
@@ -56,43 +59,57 @@ export const whatsappService = {
     let lastErrorObj: any = null;
 
     for (const testUri of candidates) {
-      console.log(`[Token Exchange Attempt] connectionRequestId: ${connectionRequestId}, redirect_uri: ${testUri !== undefined ? (testUri === "" ? '""' : testUri) : "OMITTED"}`);
+      const methods: ("POST" | "GET")[] = ["POST", "GET"];
 
-      const params: Record<string, string> = {
-        client_id: env.META_APP_ID,
-        client_secret: env.META_APP_SECRET,
-        code,
-      };
+      for (const method of methods) {
+        console.log(`[Token Exchange Attempt] connectionRequestId: ${connectionRequestId}, method: ${method}, redirect_uri: ${testUri !== undefined ? (testUri === "" ? '""' : testUri) : "OMITTED"}`);
 
-      if (testUri !== undefined) {
-        params.redirect_uri = testUri;
-      }
-
-      const body = new URLSearchParams(params);
-
-      const res = await fetch(
-        "https://graph.facebook.com/v26.0/oauth/access_token",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
-          },
-          body,
-        }
-      );
-
-      const data = (await res.json()) as any;
-
-      if (res.ok && !data.error && data.access_token) {
-        console.log(`[Token Exchange Success] Worked with redirect_uri: ${testUri !== undefined ? testUri : "OMITTED"} for requestId: ${connectionRequestId}`);
-        return {
-          accessToken: data.access_token,
-          tokenExpiry: data.expires_in ? new Date(Date.now() + data.expires_in * 1000) : undefined,
+        const params: Record<string, string> = {
+          client_id: env.META_APP_ID,
+          client_secret: env.META_APP_SECRET,
+          code,
         };
-      }
 
-      lastErrorObj = data.error || {};
-      console.warn(`[Token Exchange Meta Attempt Error] redirect_uri: ${testUri !== undefined ? testUri : "OMITTED"} - message: ${lastErrorObj.message || "N/A"} (code: ${lastErrorObj.code}, subcode: ${lastErrorObj.error_subcode})`);
+        if (testUri !== undefined) {
+          params.redirect_uri = testUri;
+        }
+
+        const queryOrBody = new URLSearchParams(params).toString();
+        let res: Response;
+
+        if (method === "POST") {
+          res = await fetch(
+            `https://graph.facebook.com/${graphVersion}/oauth/access_token`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+              },
+              body: queryOrBody,
+            }
+          );
+        } else {
+          res = await fetch(
+            `https://graph.facebook.com/${graphVersion}/oauth/access_token?${queryOrBody}`,
+            {
+              method: "GET",
+            }
+          );
+        }
+
+        const data = (await res.json()) as any;
+
+        if (res.ok && !data.error && data.access_token) {
+          console.log(`[Token Exchange Success] Worked with method: ${method}, redirect_uri: ${testUri !== undefined ? testUri : "OMITTED"} for requestId: ${connectionRequestId}`);
+          return {
+            accessToken: data.access_token,
+            tokenExpiry: data.expires_in ? new Date(Date.now() + data.expires_in * 1000) : undefined,
+          };
+        }
+
+        lastErrorObj = data.error || {};
+        console.warn(`[Token Exchange Meta Attempt Error] method: ${method}, redirect_uri: ${testUri !== undefined ? testUri : "OMITTED"} - message: ${lastErrorObj.message || "N/A"} (code: ${lastErrorObj.code}, subcode: ${lastErrorObj.error_subcode})`);
+      }
     }
 
     console.error("[Token Exchange All Attempts Failed]", connectionRequestId, lastErrorObj);
@@ -120,7 +137,7 @@ export const whatsappService = {
     console.log("[Account Fetch] Fetching shared WhatsApp Business Accounts from Meta Graph API v26.0...");
 
     // 1. Get shared WhatsApp Business Accounts
-    const wabaUrl = `https://graph.facebook.com/v26.0/me/whatsapp_business_accounts?access_token=${token}`;
+    const wabaUrl = `https://graph.facebook.com/${env.META_GRAPH_VERSION || "v20.0"}/me/whatsapp_business_accounts?access_token=${token}`;
     const wabaRes = await fetch(wabaUrl);
     const wabaData = (await wabaRes.json()) as any;
 
@@ -156,7 +173,7 @@ export const whatsappService = {
 
     // 2. Get phone numbers registered with this WABA
     console.log("[Account Fetch] Fetching phone numbers for WABA:", wabaId);
-    const phoneUrl = `https://graph.facebook.com/v26.0/${wabaId}/phone_numbers?access_token=${token}`;
+    const phoneUrl = `https://graph.facebook.com/${env.META_GRAPH_VERSION || "v20.0"}/${wabaId}/phone_numbers?access_token=${token}`;
     const phoneRes = await fetch(phoneUrl);
     const phoneData = (await phoneRes.json()) as any;
 
@@ -208,7 +225,7 @@ export const whatsappService = {
     accessToken: string
   ): Promise<{ success: boolean; data?: any }> {
     console.log(`[WABA Subscription] Subscribing WABA ID: ${wabaId} to app webhooks...`);
-    const subscribeUrl = `https://graph.facebook.com/v26.0/${wabaId}/subscribed_apps`;
+    const subscribeUrl = `https://graph.facebook.com/${env.META_GRAPH_VERSION || "v20.0"}/${wabaId}/subscribed_apps`;
 
     try {
       const res = await fetch(subscribeUrl, {
@@ -247,7 +264,7 @@ export const whatsappService = {
     qualityRating?: string;
   }> {
     console.log(`[Phone Verification] Inspecting Meta phone state for Phone ID: ${phoneNumberId}...`);
-    const url = `https://graph.facebook.com/v26.0/${phoneNumberId}?fields=id,display_phone_number,verified_name,code_verification_status,quality_rating,status`;
+    const url = `https://graph.facebook.com/${env.META_GRAPH_VERSION || "v20.0"}/${phoneNumberId}?fields=id,display_phone_number,verified_name,code_verification_status,quality_rating,status`;
 
     try {
       const res = await fetch(url, {
@@ -452,7 +469,7 @@ export const whatsappService = {
     let metaMessageId = "mock_msg_id_" + Math.random().toString(36).substr(2, 9);
     
     if (env.META_APP_ID && accessToken && accessToken !== "mock_token") {
-      const url = `https://graph.facebook.com/v26.0/${phoneNumberId}/messages`;
+      const url = `https://graph.facebook.com/${env.META_GRAPH_VERSION || "v20.0"}/${phoneNumberId}/messages`;
       try {
         console.log("[Graph API] Sending WhatsApp message via Meta Cloud API v26.0...");
         const response = await fetch(url, {
