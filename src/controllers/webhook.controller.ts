@@ -61,6 +61,8 @@ export const receiveWebhookEvent = async (req: Request, res: Response, next: Nex
             where: { phoneNumberId: fromPhoneNumberId },
           });
 
+          const merchantId = account ? account.merchantId : undefined;
+
           if (account && account.connectionStatus === "Connected") {
             await whatsappService.persistMessage({
               merchantId: account.merchantId,
@@ -70,53 +72,61 @@ export const receiveWebhookEvent = async (req: Request, res: Response, next: Nex
               sender: "customer",
             });
             console.log(`[Webhook] Saved message from ${customerPhone} for merchant ${account.merchantId}`);
+          } else {
+            console.log(`[Webhook] Processing test/direct message for phoneNumberId: ${fromPhoneNumberId}`);
+          }
 
-            // ── Native WhatsApp Product Catalog Chatbot ──
-            const lowerText = textContent.toLowerCase().trim();
+          // ── Native WhatsApp Product Catalog Chatbot ──
+          // 1. Handle Product Selection from Interactive List
+          if (message.type === "interactive" && message.interactive?.type === "list_reply") {
+            const selectedId = message.interactive.list_reply.id;
+            if (selectedId.startsWith("prod_")) {
+              const prodId = selectedId.replace("prod_", "");
+              const product = await prisma.product.findUnique({ where: { id: prodId } });
+              const prodName = product ? product.name : "Selected Product";
+              const prodPrice = product ? `₹${product.price}` : "₹499";
+              const prodDesc = product ? (product.secondary || "High quality item") : "Available for immediate order.";
 
-            // 1. Handle Product Selection from Interactive List
-            if (message.type === "interactive" && message.interactive?.type === "list_reply") {
-              const selectedId = message.interactive.list_reply.id;
-              if (selectedId.startsWith("prod_")) {
-                const prodId = selectedId.replace("prod_", "");
-                const product = await prisma.product.findUnique({ where: { id: prodId } });
-                if (product) {
-                  await whatsappService.sendMessage(account.merchantId, {
-                    recipientPhone: customerPhone,
-                    type: "interactive_button",
-                    text: `🛍️ *${product.name}*\n💰 *Price:* ₹${product.price}\n\n📝 ${product.secondary || "High-quality item available for immediate order."}\n\nWould you like to place an order?`,
-                    buttons: [
-                      { id: `buy_${product.id}`, title: "🛒 Confirm Order" },
-                      { id: "show_catalog", title: "📋 View Catalog" },
-                    ],
-                  });
-                }
+              if (merchantId && account) {
+                await whatsappService.sendMessage(merchantId, {
+                  recipientPhone: customerPhone,
+                  type: "interactive_button",
+                  text: `🛍️ *${prodName}*\n💰 *Price:* ${prodPrice}\n\n📝 ${prodDesc}\n\nWould you like to place an order?`,
+                  buttons: [
+                    { id: `buy_${prodId}`, title: "🛒 Confirm Order" },
+                    { id: "show_catalog", title: "📋 View Catalog" },
+                  ],
+                });
+              } else {
+                await sendDirectInteractiveButton(fromPhoneNumberId, customerPhone, prodName, prodPrice, prodDesc, prodId);
               }
             }
-            // 2. Handle Button Selection (Order Confirmation or Back to Catalog)
-            else if (message.type === "interactive" && message.interactive?.type === "button_reply") {
-              const buttonId = message.interactive.button_reply.id;
-              if (buttonId.startsWith("buy_")) {
-                const prodId = buttonId.replace("buy_", "");
-                const product = await prisma.product.findUnique({ where: { id: prodId } });
-                const prodName = product ? product.name : "Product";
-                const prodPrice = product ? `₹${product.price}` : "";
+          }
+          // 2. Handle Button Selection (Order Confirmation or Back to Catalog)
+          else if (message.type === "interactive" && message.interactive?.type === "button_reply") {
+            const buttonId = message.interactive.button_reply.id;
+            if (buttonId.startsWith("buy_")) {
+              const prodId = buttonId.replace("buy_", "");
+              const product = await prisma.product.findUnique({ where: { id: prodId } });
+              const prodName = product ? product.name : "Product";
+              const prodPrice = product ? `₹${product.price}` : "";
 
-                await whatsappService.sendMessage(account.merchantId, {
+              if (merchantId && account) {
+                await whatsappService.sendMessage(merchantId, {
                   recipientPhone: customerPhone,
                   type: "text",
                   text: `🎉 *Order Confirmed!*\n\nYour order for *${prodName}* (${prodPrice}) has been received successfully!\n\n📍 *Status:* Processing\n🚚 Our team will prepare your delivery shortly. Thank you for shopping with OFFSHIFT! 🙌`,
                 });
-              } else if (buttonId === "show_catalog") {
-                await sendCatalogList(account.merchantId, customerPhone);
+              } else {
+                await sendDirectText(fromPhoneNumberId, customerPhone, `🎉 *Order Confirmed!*\n\nYour order for *${prodName}* (${prodPrice}) has been received successfully!\n\n📍 *Status:* Processing\n🚚 Our team will prepare your delivery shortly. Thank you for shopping with OFFSHIFT! 🙌`);
               }
+            } else if (buttonId === "show_catalog") {
+              await sendCatalogList(merchantId, customerPhone, fromPhoneNumberId);
             }
-            // 3. Handle Greeting / Menu Trigger ("hi", "hello", "menu", "products", etc.)
-            else {
-              await sendCatalogList(account.merchantId, customerPhone);
-            }
-          } else {
-            console.log(`[Webhook] No active merchant connected with phoneNumberId: ${fromPhoneNumberId}`);
+          }
+          // 3. Handle Greeting / Menu Trigger ("hi", "hello", "menu", "products", etc.)
+          else {
+            await sendCatalogList(merchantId, customerPhone, fromPhoneNumberId);
           }
         }
       }
@@ -139,18 +149,22 @@ export const receiveWebhookEvent = async (req: Request, res: Response, next: Nex
   }
 };
 
-async function sendCatalogList(merchantId: string, recipientPhone: string): Promise<void> {
+async function sendCatalogList(merchantId: string | undefined, recipientPhone: string, phoneNumberId?: string): Promise<void> {
   try {
-    const products = await prisma.product.findMany({
-      where: { merchantId },
-      take: 10,
-    });
+    let rows: { id: string; title: string; description: string }[] = [];
 
-    let rows = products.map((p) => ({
-      id: `prod_${p.id}`,
-      title: p.name.substring(0, 24),
-      description: `₹${p.price} - ${(p.secondary || "High quality item").substring(0, 50)}`.substring(0, 72),
-    }));
+    if (merchantId) {
+      const products = await prisma.product.findMany({
+        where: { merchantId },
+        take: 10,
+      });
+
+      rows = products.map((p) => ({
+        id: `prod_${p.id}`,
+        title: p.name.substring(0, 24),
+        description: `₹${p.price} - ${(p.secondary || "High quality item").substring(0, 50)}`.substring(0, 72),
+      }));
+    }
 
     if (rows.length === 0) {
       rows = [
@@ -160,18 +174,80 @@ async function sendCatalogList(merchantId: string, recipientPhone: string): Prom
       ];
     }
 
-    await whatsappService.sendMessage(merchantId, {
-      recipientPhone,
-      type: "interactive_list",
-      text: "Welcome to OFFSHIFT Storefront! 🛍️\n\nTap below to explore our available products, inspect prices, and confirm your order directly inside WhatsApp:",
-      sections: [
-        {
-          title: "Storefront Catalog",
-          rows,
+    if (merchantId) {
+      await whatsappService.sendMessage(merchantId, {
+        recipientPhone,
+        type: "interactive_list",
+        text: "Welcome to OFFSHIFT Storefront! 🛍️\n\nTap below to explore our available products, inspect prices, and confirm your order directly inside WhatsApp:",
+        sections: [{ title: "Storefront Catalog", rows }],
+      });
+    } else if (phoneNumberId) {
+      await sendDirectMessage(phoneNumberId, recipientPhone, {
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to: recipientPhone,
+        type: "interactive",
+        interactive: {
+          type: "list",
+          body: { text: "Welcome to OFFSHIFT Storefront! 🛍️\n\nTap below to explore our available products, inspect prices, and confirm your order directly inside WhatsApp:" },
+          action: {
+            button: "Select Product",
+            sections: [{ title: "Storefront Catalog", rows }],
+          },
         },
-      ],
-    });
+      });
+    }
   } catch (err) {
     console.error("[Webhook] Failed to send catalog list:", err);
+  }
+}
+
+async function sendDirectInteractiveButton(phoneNumberId: string, recipientPhone: string, name: string, price: string, desc: string, prodId: string): Promise<void> {
+  await sendDirectMessage(phoneNumberId, recipientPhone, {
+    messaging_product: "whatsapp",
+    recipient_type: "individual",
+    to: recipientPhone,
+    type: "interactive",
+    interactive: {
+      type: "button",
+      body: { text: `🛍️ *${name}*\n💰 *Price:* ${price}\n\n📝 ${desc}\n\nWould you like to place an order?` },
+      action: {
+        buttons: [
+          { type: "reply", reply: { id: `buy_${prodId}`, title: "🛒 Confirm Order" } },
+          { type: "reply", reply: { id: "show_catalog", title: "📋 View Catalog" } },
+        ],
+      },
+    },
+  });
+}
+
+async function sendDirectText(phoneNumberId: string, recipientPhone: string, text: string): Promise<void> {
+  await sendDirectMessage(phoneNumberId, recipientPhone, {
+    messaging_product: "whatsapp",
+    recipient_type: "individual",
+    to: recipientPhone,
+    type: "text",
+    text: { body: text },
+  });
+}
+
+async function sendDirectMessage(phoneNumberId: string, recipientPhone: string, body: any): Promise<void> {
+  try {
+    const token = process.env.META_ACCESS_TOKEN || "";
+    if (!token) {
+      console.warn("[Webhook] META_ACCESS_TOKEN not set for direct fallback message.");
+      return;
+    }
+    const graphVer = process.env.META_GRAPH_VERSION || "v20.0";
+    await fetch(`https://graph.facebook.com/${graphVer}/${phoneNumberId}/messages`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+  } catch (err) {
+    console.error("[Webhook] sendDirectMessage failed:", err);
   }
 }
