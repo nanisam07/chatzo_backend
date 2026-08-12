@@ -70,6 +70,51 @@ export const receiveWebhookEvent = async (req: Request, res: Response, next: Nex
               sender: "customer",
             });
             console.log(`[Webhook] Saved message from ${customerPhone} for merchant ${account.merchantId}`);
+
+            // ── Native WhatsApp Product Catalog Chatbot ──
+            const lowerText = textContent.toLowerCase().trim();
+
+            // 1. Handle Product Selection from Interactive List
+            if (message.type === "interactive" && message.interactive?.type === "list_reply") {
+              const selectedId = message.interactive.list_reply.id;
+              if (selectedId.startsWith("prod_")) {
+                const prodId = selectedId.replace("prod_", "");
+                const product = await prisma.product.findUnique({ where: { id: prodId } });
+                if (product) {
+                  await whatsappService.sendMessage(account.merchantId, {
+                    recipientPhone: customerPhone,
+                    type: "interactive_button",
+                    text: `🛍️ *${product.name}*\n💰 *Price:* ₹${product.price}\n\n📝 ${product.secondary || "High-quality item available for immediate order."}\n\nWould you like to place an order?`,
+                    buttons: [
+                      { id: `buy_${product.id}`, title: "🛒 Confirm Order" },
+                      { id: "show_catalog", title: "📋 View Catalog" },
+                    ],
+                  });
+                }
+              }
+            }
+            // 2. Handle Button Selection (Order Confirmation or Back to Catalog)
+            else if (message.type === "interactive" && message.interactive?.type === "button_reply") {
+              const buttonId = message.interactive.button_reply.id;
+              if (buttonId.startsWith("buy_")) {
+                const prodId = buttonId.replace("buy_", "");
+                const product = await prisma.product.findUnique({ where: { id: prodId } });
+                const prodName = product ? product.name : "Product";
+                const prodPrice = product ? `₹${product.price}` : "";
+
+                await whatsappService.sendMessage(account.merchantId, {
+                  recipientPhone: customerPhone,
+                  type: "text",
+                  text: `🎉 *Order Confirmed!*\n\nYour order for *${prodName}* (${prodPrice}) has been received successfully!\n\n📍 *Status:* Processing\n🚚 Our team will prepare your delivery shortly. Thank you for shopping with OFFSHIFT! 🙌`,
+                });
+              } else if (buttonId === "show_catalog") {
+                await sendCatalogList(account.merchantId, customerPhone);
+              }
+            }
+            // 3. Handle Greeting / Menu Trigger ("hi", "hello", "menu", "products", etc.)
+            else {
+              await sendCatalogList(account.merchantId, customerPhone);
+            }
           } else {
             console.log(`[Webhook] No active merchant connected with phoneNumberId: ${fromPhoneNumberId}`);
           }
@@ -93,3 +138,40 @@ export const receiveWebhookEvent = async (req: Request, res: Response, next: Nex
     next(error);
   }
 };
+
+async function sendCatalogList(merchantId: string, recipientPhone: string): Promise<void> {
+  try {
+    const products = await prisma.product.findMany({
+      where: { merchantId },
+      take: 10,
+    });
+
+    let rows = products.map((p) => ({
+      id: `prod_${p.id}`,
+      title: p.name.substring(0, 24),
+      description: `₹${p.price} - ${(p.secondary || "High quality item").substring(0, 50)}`.substring(0, 72),
+    }));
+
+    if (rows.length === 0) {
+      rows = [
+        { id: "prod_sample_1", title: "Premium Coffee Beans", description: "₹499 - Organic arabica whole roast" },
+        { id: "prod_sample_2", title: "Artisan Ceramic Mug", description: "₹299 - Handmade ceramic mug" },
+        { id: "prod_sample_3", title: "Espresso Maker", description: "₹1499 - Compact Italian brewer" },
+      ];
+    }
+
+    await whatsappService.sendMessage(merchantId, {
+      recipientPhone,
+      type: "interactive_list",
+      text: "Welcome to OFFSHIFT Storefront! 🛍️\n\nTap below to explore our available products, inspect prices, and confirm your order directly inside WhatsApp:",
+      sections: [
+        {
+          title: "Storefront Catalog",
+          rows,
+        },
+      ],
+    });
+  } catch (err) {
+    console.error("[Webhook] Failed to send catalog list:", err);
+  }
+}
