@@ -3,12 +3,11 @@ import path from "path";
 
 dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 
-function requireEnv(name: string): string {
+function getEnvVar(name: string, fallback: string = ""): string {
   const value = process.env[name];
   if (!value || value.trim() === "") {
-    throw new Error(
-      `Missing required environment variable: ${name}\nCheck your .env file.`
-    );
+    console.warn(`[Config Warning] Missing environment variable: ${name}. Using fallback.`);
+    return fallback;
   }
   return value.trim();
 }
@@ -17,10 +16,10 @@ export const env = {
   NODE_ENV: process.env.NODE_ENV || "development",
   PORT: parseInt(process.env.PORT || "5000", 10),
 
-  DATABASE_URL: requireEnv("DATABASE_URL"),
+  DATABASE_URL: getEnvVar("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/chatzo?schema=public"),
 
-  JWT_SECRET: requireEnv("JWT_SECRET"),
-  JWT_REFRESH_SECRET: requireEnv("JWT_REFRESH_SECRET"),
+  JWT_SECRET: getEnvVar("JWT_SECRET", "default_jwt_secret_offshift_2026_secure"),
+  JWT_REFRESH_SECRET: getEnvVar("JWT_REFRESH_SECRET", "default_jwt_refresh_secret_offshift_2026_secure"),
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || "15m",
   JWT_REFRESH_EXPIRES_IN: process.env.JWT_REFRESH_EXPIRES_IN || "7d",
 

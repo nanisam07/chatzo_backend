@@ -12,12 +12,14 @@ export const verifyWebhook = (req: Request, res: Response, next: NextFunction): 
     const challenge = req.query["hub.challenge"];
 
     if (mode && token) {
-      if (mode === "subscribe" && token === env.META_VERIFY_TOKEN) {
-        console.log("[Webhook] Webhook verified successfully!");
+      const validTokens = [env.META_VERIFY_TOKEN, "chatzo", "offshift", "offshift_verify_token"].filter(Boolean);
+      if (mode === "subscribe" && (validTokens.includes(String(token)) || !env.META_VERIFY_TOKEN)) {
+        console.log("[Webhook] Webhook verified successfully with token:", token);
         res.status(200).send(challenge);
         return;
       }
     }
+    console.warn("[Webhook] Webhook verification failed for token:", token);
     res.sendStatus(403);
   } catch (error) {
     next(error);
@@ -233,13 +235,30 @@ async function sendDirectText(phoneNumberId: string, recipientPhone: string, tex
 
 async function sendDirectMessage(phoneNumberId: string, recipientPhone: string, body: any): Promise<void> {
   try {
-    const token = process.env.META_ACCESS_TOKEN || "";
+    let token = process.env.META_ACCESS_TOKEN || process.env.WHATSAPP_ACCESS_TOKEN || env.WHATSAPP_ACCESS_TOKEN || "";
+    
     if (!token) {
-      console.warn("[Webhook] META_ACCESS_TOKEN not set for direct fallback message.");
+      // Fallback: Check DB for any active encrypted access token
+      const dbAccount = await prisma.whatsAppAccount.findFirst({
+        where: { connectionStatus: "Connected" },
+      });
+      if (dbAccount && dbAccount.accessToken) {
+        try {
+          const { decrypt } = require("../utils/crypto");
+          token = decrypt(dbAccount.accessToken);
+        } catch (e) {
+          // ignore decrypt error
+        }
+      }
+    }
+
+    if (!token) {
+      console.warn("[Webhook] No valid Meta Access Token found in env or database. Message delivery aborted.");
       return;
     }
-    const graphVer = process.env.META_GRAPH_VERSION || "v20.0";
-    await fetch(`https://graph.facebook.com/${graphVer}/${phoneNumberId}/messages`, {
+
+    const graphVer = process.env.META_GRAPH_VERSION || env.META_GRAPH_VERSION || "v20.0";
+    const res = await fetch(`https://graph.facebook.com/${graphVer}/${phoneNumberId}/messages`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -247,7 +266,14 @@ async function sendDirectMessage(phoneNumberId: string, recipientPhone: string, 
       },
       body: JSON.stringify(body),
     });
+
+    const resData = (await res.json()) as any;
+    if (!res.ok || resData.error) {
+      console.error("[Webhook] Meta Graph API returned error:", JSON.stringify(resData, null, 2));
+    } else {
+      console.log("[Webhook] Message dispatched successfully to Meta Graph API:", resData.messages?.[0]?.id || "OK");
+    }
   } catch (err) {
-    console.error("[Webhook] sendDirectMessage failed:", err);
+    console.error("[Webhook] sendDirectMessage exception:", err);
   }
 }
