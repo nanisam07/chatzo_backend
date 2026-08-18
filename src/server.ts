@@ -11,7 +11,7 @@ async function startServer() {
     console.log("✅ Connected to Neon PostgreSQL via Prisma");
 
     app.listen(PORT, () => {
-      console.log(`🚀 CHATZO Backend running on port ${PORT}`);
+      console.log(`🚀 Offshift Backend running on port ${PORT}`);
       console.log(`📡 Environment: ${env.NODE_ENV}`);
       console.log(`🌐 API Base: http://localhost:${PORT}/api/v1`);
     });

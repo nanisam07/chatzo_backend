@@ -12,7 +12,7 @@ export const verifyWebhook = (req: Request, res: Response, next: NextFunction): 
     const challenge = req.query["hub.challenge"];
 
     if (mode && token) {
-      const validTokens = [env.META_VERIFY_TOKEN, "chatzo", "offshift", "offshift_verify_token"].filter(Boolean);
+      const validTokens = [env.META_VERIFY_TOKEN, "offshift", "offshift_verify_token"].filter(Boolean);
       if (mode === "subscribe" && (validTokens.includes(String(token)) || !env.META_VERIFY_TOKEN)) {
         console.log("[Webhook] Webhook verified successfully with token:", token);
         res.status(200).send(challenge);

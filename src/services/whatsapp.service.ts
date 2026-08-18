@@ -50,8 +50,8 @@ export const whatsappService = {
     // List candidate redirect URIs to attempt against Meta Graph API
     const candidates: (string | undefined)[] = [
       primaryUri,
-      "https://chatzo-frontend.vercel.app/",
-      "https://chatzo-frontend.vercel.app",
+      "https://offshift.shop/",
+      "https://offshift.shop",
       undefined,
       "",
     ].filter((v, i, a) => a.indexOf(v) === i);

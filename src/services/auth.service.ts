@@ -74,7 +74,7 @@ export const signupService = async (input: SignupInput) => {
       await createOtp(existing.id, otp, OtpType.EMAIL_VERIFICATION, otpExpiresAt());
       await sendMail({
         to: existing.email,
-        subject: "Verify your CHATZO account",
+        subject: "Verify your Offshift account",
         html: verifyEmailTemplate({ fullName: existing.fullName, otp }),
       });
       return {
@@ -108,7 +108,7 @@ export const signupService = async (input: SignupInput) => {
 
   await sendMail({
     to: user.email,
-    subject: "Verify your CHATZO account",
+    subject: "Verify your Offshift account",
     html: verifyEmailTemplate({ fullName: user.fullName, otp }),
   });
 
@@ -151,13 +151,13 @@ export const sendOtpService = async (email: string, type: OtpType) => {
   if (type === OtpType.EMAIL_VERIFICATION) {
     await sendMail({
       to: user.email,
-      subject: "Verify your CHATZO account",
+      subject: "Verify your Offshift account",
       html: verifyEmailTemplate({ fullName: user.fullName, otp }),
     });
   } else {
     await sendMail({
       to: user.email,
-      subject: "Reset your CHATZO password",
+      subject: "Reset your Offshift password",
       html: forgotPasswordTemplate({ fullName: user.fullName, otp }),
     });
   }
@@ -189,7 +189,7 @@ export const verifyOtpService = async (input: VerifyOtpInput) => {
     const merchant = await findMerchantByUserId(user.id);
     await sendMail({
       to: user.email,
-      subject: "🎉 Welcome to CHATZO!",
+      subject: "🎉 Welcome to Offshift!",
       html: welcomeTemplate({
         fullName: user.fullName,
         businessName: merchant?.businessName ?? user.fullName,
@@ -197,7 +197,7 @@ export const verifyOtpService = async (input: VerifyOtpInput) => {
     });
 
     return {
-      message: "Email verified successfully. Welcome to CHATZO!",
+      message: "Email verified successfully. Welcome to Offshift!",
       accessToken,
       refreshToken,
       user: {
@@ -235,7 +235,7 @@ export const loginService = async (input: LoginInput) => {
     await createOtp(user.id, otp, OtpType.EMAIL_VERIFICATION, otpExpiresAt());
     await sendMail({
       to: user.email,
-      subject: "Verify your CHATZO account",
+      subject: "Verify your Offshift account",
       html: verifyEmailTemplate({ fullName: user.fullName, otp }),
     });
     throw new AppError(
@@ -329,7 +329,7 @@ export const forgotPasswordService = async (email: string) => {
 
   await sendMail({
     to: user.email,
-    subject: "Reset your CHATZO password",
+    subject: "Reset your Offshift password",
     html: forgotPasswordTemplate({ fullName: user.fullName, otp }),
   });
 

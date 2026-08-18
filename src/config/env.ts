@@ -16,7 +16,7 @@ export const env = {
   NODE_ENV: process.env.NODE_ENV || "development",
   PORT: parseInt(process.env.PORT || "5000", 10),
 
-  DATABASE_URL: getEnvVar("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/chatzo?schema=public"),
+  DATABASE_URL: getEnvVar("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/offshift?schema=public"),
 
   JWT_SECRET: getEnvVar("JWT_SECRET", "default_jwt_secret_offshift_2026_secure"),
   JWT_REFRESH_SECRET: getEnvVar("JWT_REFRESH_SECRET", "default_jwt_refresh_secret_offshift_2026_secure"),
@@ -25,7 +25,7 @@ export const env = {
 
   // Email — Resend is the primary provider
   RESEND_API_KEY: process.env.RESEND_API_KEY?.trim() || "",
-  EMAIL_FROM: process.env.EMAIL_FROM || "CHATZO <onboarding@resend.dev>",
+  EMAIL_FROM: process.env.EMAIL_FROM || "Offshift <onboarding@resend.dev>",
 
   FRONTEND_URL: process.env.FRONTEND_URL || "http://localhost:3000",
 

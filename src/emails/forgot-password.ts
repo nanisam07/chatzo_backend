@@ -7,7 +7,7 @@ export const forgotPasswordTemplate = (params: {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Reset Your Password – CHATZO</title>
+  <title>Reset Your Password – Offshift</title>
   <style>
     body { margin: 0; padding: 0; background-color: #f4f6f9; font-family: 'Segoe UI', sans-serif; }
     .wrapper { max-width: 560px; margin: 40px auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
@@ -28,13 +28,13 @@ export const forgotPasswordTemplate = (params: {
 <body>
   <div class="wrapper">
     <div class="header">
-      <h1>CHATZO</h1>
+      <h1>Offshift</h1>
       <p>Password Reset Request</p>
     </div>
     <div class="body">
       <p class="greeting">Hello, ${params.fullName}!</p>
       <p class="text">
-        We received a request to reset the password for your CHATZO merchant account. Use the OTP below to proceed with your password reset.
+        We received a request to reset the password for your Offshift merchant account. Use the OTP below to proceed with your password reset.
       </p>
       <div class="otp-box">
         <div class="otp-code">${params.otp}</div>
@@ -48,7 +48,7 @@ export const forgotPasswordTemplate = (params: {
       </p>
     </div>
     <div class="footer">
-      <p>© ${new Date().getFullYear()} CHATZO. All rights reserved.</p>
+      <p>© ${new Date().getFullYear()} Offshift. All rights reserved.</p>
       <p style="margin-top:6px;">This is an automated email. Please do not reply.</p>
     </div>
   </div>

@@ -14,7 +14,7 @@ function getFromAddress(): string {
   const from = process.env.EMAIL_FROM;
   if (!from) {
     throw new Error(
-      "[Mail] EMAIL_FROM is not set in .env. Example: EMAIL_FROM=CHATZO <onboarding@resend.dev>"
+      "[Mail] EMAIL_FROM is not set in .env. Example: EMAIL_FROM=Offshift <onboarding@resend.dev>"
     );
   }
   return from;
@@ -50,7 +50,7 @@ function printMailLog(params: {
 }): void {
   const line = "━".repeat(56);
   console.log(`\n${line}`);
-  console.log(`📧  CHATZO MAIL — ${params.status}`);
+  console.log(`📧  OFFSHIFT MAIL — ${params.status}`);
   console.log(line);
   console.log(`  Recipient  : ${params.to}`);
   console.log(`  Subject    : ${params.subject}`);

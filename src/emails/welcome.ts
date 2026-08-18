@@ -7,7 +7,7 @@ export const welcomeTemplate = (params: {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Welcome to CHATZO!</title>
+  <title>Welcome to Offshift!</title>
   <style>
     body { margin: 0; padding: 0; background-color: #f4f6f9; font-family: 'Segoe UI', sans-serif; }
     .wrapper { max-width: 560px; margin: 40px auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
@@ -30,13 +30,13 @@ export const welcomeTemplate = (params: {
 <body>
   <div class="wrapper">
     <div class="header">
-      <h1>🎉 Welcome to CHATZO!</h1>
+      <h1>🎉 Welcome to Offshift!</h1>
       <p>Your WhatsApp Commerce journey starts now</p>
     </div>
     <div class="body">
       <p class="greeting">Hi ${params.fullName}!</p>
       <p class="text">
-        Congratulations! Your merchant account for <strong>${params.businessName}</strong> is now active on CHATZO. You're ready to start selling on WhatsApp.
+        Congratulations! Your merchant account for <strong>${params.businessName}</strong> is now active on Offshift. You're ready to start selling on WhatsApp.
       </p>
 
       <div class="feature-grid">
@@ -70,8 +70,8 @@ export const welcomeTemplate = (params: {
       </p>
     </div>
     <div class="footer">
-      <p>© ${new Date().getFullYear()} CHATZO. All rights reserved.</p>
-      <p style="margin-top:6px;">You're receiving this email because you signed up for CHATZO.</p>
+      <p>© ${new Date().getFullYear()} Offshift. All rights reserved.</p>
+      <p style="margin-top:6px;">You're receiving this email because you signed up for Offshift. Visit us at <a href="https://offshift.shop" style="color:#2563EB;">offshift.shop</a></p>
     </div>
   </div>
 </body>

@@ -72,7 +72,7 @@ if (env.NODE_ENV !== "test") {
 app.get("/", (_req, res) => {
   res.json({
     success: true,
-    message: "CHATZO Backend API Running 🚀",
+    message: "Offshift Backend API Running 🚀",
     version: "1.0.0",
     environment: env.NODE_ENV,
   });

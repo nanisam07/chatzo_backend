@@ -365,7 +365,7 @@ export const saveWhatsAppConfig = async (req: Request, res: Response, next: Next
 // ─── Webhooks ─────────────────────────────────────────────────────────────────
 
 export const verifyWebhook = async (req: Request, res: Response) => {
-  const verifyToken = process.env.META_VERIFY_TOKEN || "chatzo_verify_token";
+  const verifyToken = process.env.META_VERIFY_TOKEN || "offshift_verify_token";
   
   const mode = req.query["hub.mode"];
   const token = req.query["hub.verify_token"];

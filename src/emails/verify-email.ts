@@ -7,7 +7,7 @@ export const verifyEmailTemplate = (params: {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Verify Your Email – CHATZO</title>
+  <title>Verify Your Email – Offshift</title>
   <style>
     body { margin: 0; padding: 0; background-color: #f4f6f9; font-family: 'Segoe UI', sans-serif; }
     .wrapper { max-width: 560px; margin: 40px auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
@@ -27,24 +27,24 @@ export const verifyEmailTemplate = (params: {
 <body>
   <div class="wrapper">
     <div class="header">
-      <h1>CHATZO</h1>
+      <h1>Offshift</h1>
       <p>WhatsApp Commerce Platform</p>
     </div>
     <div class="body">
       <p class="greeting">Hello, ${params.fullName}! 👋</p>
       <p class="text">
-        Welcome to CHATZO. To complete your registration and activate your merchant account, please verify your email address using the OTP below.
+        Welcome to Offshift. To complete your registration and activate your merchant account, please verify your email address using the OTP below.
       </p>
       <div class="otp-box">
         <div class="otp-code">${params.otp}</div>
         <p class="otp-note">This OTP is valid for <strong>10 minutes</strong>. Do not share it with anyone.</p>
       </div>
       <p class="text">
-        If you did not create an account with CHATZO, you can safely ignore this email. Your account will not be activated without verification.
+        If you did not create an account with Offshift, you can safely ignore this email. Your account will not be activated without verification.
       </p>
     </div>
     <div class="footer">
-      <p>© ${new Date().getFullYear()} CHATZO. All rights reserved.</p>
+      <p>© ${new Date().getFullYear()} Offshift. All rights reserved.</p>
       <p style="margin-top:6px;">This is an automated email. Please do not reply.</p>
     </div>
   </div>
